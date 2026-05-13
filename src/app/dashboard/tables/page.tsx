@@ -1,0 +1,209 @@
+'use client'
+
+import { useEffect, useState, useCallback } from 'react'
+import { Plus, RefreshCw, Merge, ArrowRightLeft, Trash2 } from 'lucide-react'
+
+interface Table {
+  id: string
+  number: string
+  status: 'FREE' | 'OCCUPIED' | 'WAITING_PAYMENT'
+  mergedWithId: string | null
+}
+
+const STATUS_COLORS = {
+  FREE: { bg: 'rgba(82,183,136,0.12)', border: 'var(--success-light)', label: 'Free', badge: 'badge-free' },
+  OCCUPIED: { bg: 'rgba(244,162,97,0.12)', border: 'var(--warning-light)', label: 'Occupied', badge: 'badge-occupied' },
+  WAITING_PAYMENT: { bg: 'rgba(230,57,70,0.12)', border: 'var(--danger-light)', label: 'Waiting Payment', badge: 'badge-waiting' },
+}
+
+export default function TablesPage() {
+  const [tables, setTables] = useState<Table[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showAdd, setShowAdd] = useState(false)
+  const [newNumber, setNewNumber] = useState('')
+  const [mergeMode, setMergeMode] = useState(false)
+  const [mergeSelected, setMergeSelected] = useState<string[]>([])
+  const [transferMode, setTransferMode] = useState(false)
+  const [transferSelected, setTransferSelected] = useState<string[]>([])
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    const res = await fetch('/api/tables')
+    setTables(await res.json())
+    setLoading(false)
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  async function addTable() {
+    if (!newNumber.trim()) return
+    await fetch('/api/tables', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ number: newNumber.trim() }) })
+    setNewNumber('')
+    setShowAdd(false)
+    load()
+  }
+
+  async function updateStatus(id: string, status: string) {
+    await fetch(`/api/tables/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) })
+    load()
+  }
+
+  async function deleteTable(id: string) {
+    if (!confirm('Delete this table?')) return
+    await fetch(`/api/tables/${id}`, { method: 'DELETE' })
+    load()
+  }
+
+  function handleMergeClick(id: string) {
+    setMergeSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : prev.length < 2 ? [...prev, id] : prev)
+  }
+
+  async function confirmMerge() {
+    if (mergeSelected.length !== 2) return
+    await fetch(`/api/tables/${mergeSelected[0]}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mergedWithId: mergeSelected[1] })
+    })
+    setMergeMode(false); setMergeSelected([]); load()
+  }
+
+  function handleTransferClick(id: string) {
+    setTransferSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : prev.length < 2 ? [...prev, id] : prev)
+  }
+
+  async function confirmTransfer() {
+    if (transferSelected.length !== 2) return
+    const [fromId, toId] = transferSelected
+    // Get open order from source table
+    const res = await fetch(`/api/orders?tableId=${fromId}&status=OPEN`)
+    const orders = await res.json()
+    if (orders.length > 0) {
+      await fetch(`/api/orders/${orders[0].id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tableId: toId })
+      })
+      await fetch(`/api/tables/${fromId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'FREE' }) })
+      await fetch(`/api/tables/${toId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'OCCUPIED' }) })
+    }
+    setTransferMode(false); setTransferSelected([]); load()
+  }
+
+  return (
+    <div className="animate-fade-in">
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '28px', flexWrap: 'wrap', gap: '12px' }}>
+        <div>
+          <h1 className="font-cinzel" style={{ fontSize: '22px', fontWeight: '700' }}>
+            <span className="gold-text">Floor Map</span>
+          </h1>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginTop: '4px' }}>
+            {tables.length} tables · {tables.filter(t => t.status === 'FREE').length} free · {tables.filter(t => t.status === 'OCCUPIED').length} occupied
+          </p>
+        </div>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <button className="btn btn-ghost btn-sm" onClick={load}><RefreshCw size={15} /> Refresh</button>
+          <button className={`btn btn-sm ${mergeMode ? 'btn-gold' : 'btn-outline'}`} onClick={() => { setMergeMode(!mergeMode); setMergeSelected([]); setTransferMode(false) }}><Merge size={15} /> Merge</button>
+          <button className={`btn btn-sm ${transferMode ? 'btn-gold' : 'btn-outline'}`} onClick={() => { setTransferMode(!transferMode); setTransferSelected([]); setMergeMode(false) }}><ArrowRightLeft size={15} /> Transfer</button>
+          <button className="btn btn-gold btn-sm" onClick={() => setShowAdd(true)}><Plus size={15} /> Add Table</button>
+        </div>
+      </div>
+
+      {/* Legend */}
+      <div style={{ display: 'flex', gap: '20px', marginBottom: '24px', flexWrap: 'wrap' }}>
+        {Object.entries(STATUS_COLORS).map(([k, v]) => (
+          <div key={k} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: v.border }} />
+            <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{v.label}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Merge/Transfer instruction */}
+      {(mergeMode || transferMode) && (
+        <div style={{ background: 'rgba(201,168,76,0.08)', border: '1px solid rgba(201,168,76,0.2)', borderRadius: '8px', padding: '12px 16px', marginBottom: '20px', fontSize: '14px', color: 'var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+          <span>{mergeMode ? `Select 2 tables to merge (${mergeSelected.length}/2 selected)` : `Select source then destination table (${transferSelected.length}/2 selected)`}</span>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            {mergeMode && mergeSelected.length === 2 && <button className="btn btn-gold btn-sm" onClick={confirmMerge}>Confirm Merge</button>}
+            {transferMode && transferSelected.length === 2 && <button className="btn btn-gold btn-sm" onClick={confirmTransfer}>Confirm Transfer</button>}
+            <button className="btn btn-ghost btn-sm" onClick={() => { setMergeMode(false); setTransferMode(false); setMergeSelected([]); setTransferSelected([]) }}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* Tables Grid */}
+      {loading ? (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '200px', color: 'var(--text-muted)' }}>Loading tables...</div>
+      ) : tables.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)' }}>
+          <div style={{ fontSize: '40px', marginBottom: '12px' }}>🪑</div>
+          <p>No tables yet. Add your first table!</p>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '16px' }}>
+          {tables.map(table => {
+            const colors = STATUS_COLORS[table.status]
+            const isMergeSelected = mergeSelected.includes(table.id)
+            const isTransferSelected = transferSelected.includes(table.id)
+            const isSelected = isMergeSelected || isTransferSelected
+            return (
+              <div
+                key={table.id}
+                className="card-hover"
+                onClick={() => {
+                  if (mergeMode) handleMergeClick(table.id)
+                  else if (transferMode) handleTransferClick(table.id)
+                  else if (table.status === 'WAITING_PAYMENT') window.location.href = `/dashboard/payment`
+                  else window.location.href = `/dashboard/orders/new?tableId=${table.id}`
+                }}
+                style={{
+                  background: isSelected ? 'rgba(201,168,76,0.12)' : colors.bg,
+                  border: `2px solid ${isSelected ? 'var(--gold)' : colors.border}`,
+                  borderRadius: '12px',
+                  padding: '20px 16px',
+                  textAlign: 'center',
+                  position: 'relative',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                {isSelected && (
+                  <div style={{ position: 'absolute', top: '8px', right: '8px', background: 'var(--gold)', borderRadius: '50%', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', color: 'var(--black)', fontWeight: '700' }}>✓</div>
+                )}
+                <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '4px' }}>TABLE</div>
+                <div style={{ fontSize: '32px', fontWeight: '700', fontFamily: 'Cinzel, serif', color: 'var(--text-primary)', marginBottom: '10px' }}>{table.number}</div>
+                <span className={`badge ${colors.badge}`} style={{ fontSize: '11px' }}>{colors.label}</span>
+                {!mergeMode && !transferMode && (
+                  <div style={{ marginTop: '12px', display: 'flex', gap: '6px', justifyContent: 'center' }} onClick={e => e.stopPropagation()}>
+                    {table.status !== 'FREE' && (
+                      <button className="btn btn-ghost btn-sm" style={{ padding: '4px 8px', fontSize: '11px' }} onClick={() => updateStatus(table.id, 'WAITING_PAYMENT')}>
+                        Pay
+                      </button>
+                    )}
+                    <button className="btn btn-ghost btn-sm" style={{ padding: '4px 8px', fontSize: '11px', color: 'var(--danger-light)' }} onClick={() => deleteTable(table.id)}>
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Add Table Modal */}
+      {showAdd && (
+        <div className="modal-overlay" onClick={() => setShowAdd(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '20px' }}>Add New Table</h3>
+            <label className="input-label">Table Number</label>
+            <input className="input" placeholder="e.g. 1, 2, VIP1" value={newNumber} onChange={e => setNewNumber(e.target.value)} onKeyDown={e => e.key === 'Enter' && addTable()} autoFocus />
+            <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+              <button className="btn btn-gold" style={{ flex: 1 }} onClick={addTable}>Add Table</button>
+              <button className="btn btn-ghost" onClick={() => setShowAdd(false)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

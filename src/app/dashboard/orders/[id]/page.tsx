@@ -1,0 +1,245 @@
+'use client'
+
+import { useEffect, useState, useCallback } from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import { Printer, X, CheckCircle, AlertCircle, Plus } from 'lucide-react'
+import Link from 'next/link'
+
+interface OrderItem {
+  id: string
+  menuItem: { id: string; name: string; price: number; category: { name: string; type: string } }
+  quantity: number
+  notes?: string
+  status: string
+  cancellation?: { reason: string; manager: { fullName: string } }
+}
+interface Order {
+  id: string
+  table: { number: string }
+  waiter: { fullName: string }
+  orderItems: OrderItem[]
+  status: string
+  createdAt: string
+  payment?: { amount: number; method: string; cashier: { fullName: string }; discount: number; createdAt: string }
+}
+
+export default function OrderDetailPage() {
+  const { id } = useParams()
+  const router = useRouter()
+  const [order, setOrder] = useState<Order | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [session, setSession] = useState<{ id: string; fullName: string; role: string } | null>(null)
+  const [cancelTarget, setCancelTarget] = useState<OrderItem | null>(null)
+  const [cancelReason, setCancelReason] = useState('')
+  const [managerPassword, setManagerPassword] = useState('')
+  const [cancelLoading, setCancelLoading] = useState(false)
+  const [cancelError, setCancelError] = useState('')
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    const [orderRes, sessRes] = await Promise.all([fetch(`/api/orders/${id}`), fetch('/api/auth/me')])
+    if (orderRes.ok) setOrder(await orderRes.json())
+    if (sessRes.ok) setSession(await sessRes.json())
+    setLoading(false)
+  }, [id])
+
+  useEffect(() => { load() }, [load])
+
+  function printCancellationTicket(item: OrderItem, tableNumber: string) {
+    const win = window.open('', '_blank', 'width=350,height=500')
+    if (!win) return
+    const now = new Date().toLocaleString('en-ET', { timeZone: 'Africa/Addis_Ababa' })
+    win.document.write(`<html><body style="font-family:Courier New,monospace;padding:16px;width:280px;">
+      <div style="text-align:center;">
+        <b style="font-size:15px;letter-spacing:2px;">DIVA ADDIS LOUNGE</b><br/>
+        <hr style="border-top:1px dashed #000;margin:8px 0;"/>
+        <b style="font-size:16px;border:2px solid red;padding:4px 12px;color:red;">⚠ CANCELLATION</b>
+      </div>
+      <div style="margin:12px 0;">
+        <b>Table:</b> ${tableNumber}<br/>
+        <b>Date:</b> ${now}
+      </div>
+      <hr style="border-top:1px dashed #000;margin:8px 0;"/>
+      <div style="font-size:14px;"><b>CANCEL: ${item.quantity}x ${item.menuItem.name}</b></div>
+      <div style="font-size:12px;margin-top:8px;color:#555;">Reason: ${cancelReason}</div>
+      <hr style="border-top:1px dashed #000;margin:8px 0;"/>
+      <div style="text-align:center;font-size:11px;">— Diva Addis Lounge —</div>
+    </body></html>`)
+    win.document.close()
+    setTimeout(() => win.print(), 300)
+  }
+
+  async function handleCancel() {
+    if (!cancelTarget || !cancelReason.trim() || !session) return
+    setCancelLoading(true)
+    setCancelError('')
+
+    // Verify manager via login check
+    const verRes = await fetch('/api/auth/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: session.username || '', password: managerPassword }),
+    })
+    if (!verRes.ok && !['ADMIN', 'MANAGER'].includes(session.role)) {
+      setCancelError('Manager approval required')
+      setCancelLoading(false)
+      return
+    }
+
+    await fetch('/api/cancellations', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderItemId: cancelTarget.id, managerId: session.id, reason: cancelReason }),
+    })
+
+    printCancellationTicket(cancelTarget, order!.table.number)
+    setCancelTarget(null)
+    setCancelReason('')
+    setMangerPassword('')
+    load()
+    setCancelLoading(false)
+  }
+
+  function setMangerPassword(v: string) { setManagerPassword(v) }
+
+  function printReceipt() {
+    if (!order) return
+    const total = order.orderItems.filter(i => i.status !== 'CANCELLED').reduce((s, i) => s + i.menuItem.price * i.quantity, 0)
+    const win = window.open('', '_blank', 'width=400,height=700')
+    if (!win) return
+    const now = new Date().toLocaleString('en-ET', { timeZone: 'Africa/Addis_Ababa' })
+    win.document.write(`<html><body style="font-family:Courier New,monospace;padding:20px;width:300px;">
+      <div style="text-align:center;margin-bottom:10px;">
+        <b style="font-size:16px;letter-spacing:2px;">DIVA ADDIS LOUNGE</b><br/>
+        <span style="font-size:11px;">Addis Ababa, Ethiopia</span><br/>
+        <hr style="border-top:1px dashed #000;margin:8px 0;"/>
+        <b>RECEIPT</b>
+      </div>
+      <div style="margin-bottom:10px;">
+        <b>Table:</b> ${order.table.number}<br/>
+        <b>Waiter:</b> ${order.waiter.fullName}<br/>
+        <b>Cashier:</b> ${order.payment?.cashier?.fullName || '-'}<br/>
+        <b>Date:</b> ${now}
+      </div>
+      <hr style="border-top:1px dashed #000;margin:8px 0;"/>
+      ${order.orderItems.filter(i => i.status !== 'CANCELLED').map(i => `
+        <div style="display:flex;justify-content:space-between;">
+          <span>${i.quantity}x ${i.menuItem.name}</span>
+          <span>${(i.menuItem.price * i.quantity).toFixed(2)} ETB</span>
+        </div>
+      `).join('')}
+      <hr style="border-top:1px dashed #000;margin:8px 0;"/>
+      ${order.payment?.discount ? `<div style="display:flex;justify-content:space-between;"><span>Discount</span><span>-${order.payment.discount.toFixed(2)} ETB</span></div>` : ''}
+      <div style="display:flex;justify-content:space-between;font-weight:bold;font-size:15px;">
+        <span>TOTAL</span><span>${(order.payment?.amount || total).toFixed(2)} ETB</span>
+      </div>
+      <div style="margin-top:8px;"><b>Payment:</b> ${order.payment?.method || '-'}</div>
+      <hr style="border-top:1px dashed #000;margin:8px 0;"/>
+      <div style="text-align:center;font-size:11px;">Thank you for visiting Diva Addis Lounge!</div>
+    </body></html>`)
+    win.document.close()
+    setTimeout(() => win.print(), 300)
+  }
+
+  if (loading) return <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>Loading...</div>
+  if (!order) return <div style={{ textAlign: 'center', padding: '60px', color: 'var(--danger-light)' }}>Order not found.</div>
+
+  const activeItems = order.orderItems.filter(i => i.status !== 'CANCELLED')
+  const total = activeItems.reduce((s, i) => s + i.menuItem.price * i.quantity, 0)
+
+  return (
+    <div className="animate-fade-in" style={{ maxWidth: '760px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
+        <div>
+          <h1 className="font-cinzel" style={{ fontSize: '22px', fontWeight: '700' }}><span className="gold-text">Order — Table {order.table.number}</span></h1>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '4px' }}>Waiter: {order.waiter.fullName} · {new Date(order.createdAt).toLocaleString('en-ET')}</p>
+        </div>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          {order.status === 'PAID' && <button className="btn btn-outline btn-sm" onClick={printReceipt}><Printer size={14} /> Print Receipt</button>}
+          {order.status === 'OPEN' && (
+            <>
+              <Link href={`/dashboard/orders/new?tableId=${order.table.number}`} className="btn btn-outline btn-sm"><Plus size={14} /> Add Items</Link>
+              <Link href={`/dashboard/payment?orderId=${order.id}`} className="btn btn-gold btn-sm">Process Payment</Link>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Order Items */}
+      <div className="card" style={{ marginBottom: '16px' }}>
+        <h3 style={{ fontWeight: '600', marginBottom: '16px' }}>Items</h3>
+        {order.orderItems.map(item => (
+          <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 0', borderBottom: '1px solid var(--black-border)' }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontWeight: '500', ...(item.status === 'CANCELLED' ? { textDecoration: 'line-through', opacity: 0.5 } : {}) }}>
+                  {item.quantity}x {item.menuItem.name}
+                </span>
+                <span style={{ fontSize: '11px', padding: '2px 6px', borderRadius: '8px', background: item.status === 'PRINTED' ? 'rgba(82,183,136,0.15)' : item.status === 'CANCELLED' ? 'rgba(90,80,64,0.2)' : 'rgba(201,168,76,0.1)', color: item.status === 'PRINTED' ? 'var(--success-light)' : item.status === 'CANCELLED' ? 'var(--text-muted)' : 'var(--gold)' }}>
+                  {item.status}
+                </span>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{item.menuItem.category.type === 'FOOD' ? '🍳' : '🍹'}</span>
+              </div>
+              {item.notes && <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>Note: {item.notes}</div>}
+              {item.cancellation && <div style={{ fontSize: '12px', color: 'var(--danger-light)', marginTop: '2px' }}>Cancelled: {item.cancellation.reason} (by {item.cancellation.manager.fullName})</div>}
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ color: 'var(--gold)', fontWeight: '600' }}>{(item.menuItem.price * item.quantity).toFixed(2)} ETB</div>
+              {item.status !== 'CANCELLED' && order.status === 'OPEN' && (session?.role === 'ADMIN' || session?.role === 'MANAGER') && (
+                <button className="btn btn-ghost btn-sm" style={{ padding: '3px 6px', fontSize: '11px', color: 'var(--danger-light)', marginTop: '4px' }} onClick={() => setCancelTarget(item)}>
+                  <X size={11} /> Cancel
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '16px', paddingTop: '12px' }}>
+          <span style={{ color: 'var(--text-secondary)', fontWeight: '600' }}>Total</span>
+          <span style={{ fontSize: '20px', fontWeight: '700', color: 'var(--gold)' }}>{total.toFixed(2)} ETB</span>
+        </div>
+      </div>
+
+      {/* Payment info */}
+      {order.payment && (
+        <div className="card" style={{ background: 'rgba(82,183,136,0.05)', border: '1px solid var(--success-light)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+            <CheckCircle size={18} color="var(--success-light)" />
+            <span style={{ fontWeight: '600', color: 'var(--success-light)' }}>Payment Received</span>
+          </div>
+          <div style={{ fontSize: '14px', color: 'var(--text-secondary)', display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+            <span>Amount: <b style={{ color: 'var(--text-primary)' }}>{order.payment.amount.toFixed(2)} ETB</b></span>
+            <span>Method: <b style={{ color: 'var(--text-primary)' }}>{order.payment.method}</b></span>
+            {order.payment.discount > 0 && <span>Discount: <b style={{ color: 'var(--gold)' }}>{order.payment.discount.toFixed(2)} ETB</b></span>}
+          </div>
+        </div>
+      )}
+
+      {/* Cancel Modal */}
+      {cancelTarget && (
+        <div className="modal-overlay" onClick={() => setCancelTarget(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+              <AlertCircle size={20} color="var(--warning-light)" />
+              <h3 style={{ fontSize: '16px', fontWeight: '600' }}>Cancel Item</h3>
+            </div>
+            <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
+              Cancelling: <b style={{ color: 'var(--text-primary)' }}>{cancelTarget.quantity}x {cancelTarget.menuItem.name}</b>
+            </p>
+            {cancelTarget.status === 'PRINTED' && (
+              <div style={{ background: 'rgba(244,162,97,0.1)', border: '1px solid var(--warning-light)', borderRadius: '8px', padding: '10px 14px', marginBottom: '16px', fontSize: '13px', color: 'var(--warning-light)' }}>
+                ⚠ This item has already been printed. A cancellation ticket will be printed for the kitchen/bar.
+              </div>
+            )}
+            <label className="input-label">Reason for Cancellation</label>
+            <input className="input" style={{ marginBottom: '12px' }} placeholder="e.g. Customer changed mind" value={cancelReason} onChange={e => setCancelReason(e.target.value)} autoFocus />
+            {cancelError && <div style={{ color: 'var(--danger-light)', fontSize: '13px', marginBottom: '12px' }}>{cancelError}</div>}
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button className="btn btn-danger" style={{ flex: 1 }} onClick={handleCancel} disabled={cancelLoading}>
+                {cancelLoading ? 'Processing...' : 'Confirm Cancel & Print'}
+              </button>
+              <button className="btn btn-ghost" onClick={() => { setCancelTarget(null); setCancelError('') }}>Back</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
