@@ -28,7 +28,7 @@ export default function OrderDetailPage() {
   const router = useRouter()
   const [order, setOrder] = useState<Order | null>(null)
   const [loading, setLoading] = useState(true)
-  const [session, setSession] = useState<{ id: string; fullName: string; role: string } | null>(null)
+  const [session, setSession] = useState<{ id: string; username: string; fullName: string; role: string } | null>(null)
   const [cancelTarget, setCancelTarget] = useState<OrderItem | null>(null)
   const [cancelReason, setCancelReason] = useState('')
   const [managerPassword, setManagerPassword] = useState('')
