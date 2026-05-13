@@ -1,4 +1,4 @@
-import { SignJWT, jwtVerify } from 'jose'
+import { SignJWT, jwtVerify, type JWTPayload } from 'jose'
 import { cookies } from 'next/headers'
 
 const SECRET = new TextEncoder().encode(
@@ -13,7 +13,7 @@ export interface SessionUser {
 }
 
 export async function createSession(user: SessionUser) {
-  const token = await new SignJWT(user)
+  const token = await new SignJWT(user as unknown as JWTPayload)
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime('12h')
