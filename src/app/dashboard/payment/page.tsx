@@ -7,7 +7,7 @@ import { Printer, CheckCircle } from 'lucide-react'
 interface OrderItem { id: string; menuItem: { name: string; price: number; category: { name: string } }; quantity: number; notes?: string; status: string }
 interface Order { id: string; table: { number: string; id: string }; waiter: { fullName: string }; orderItems: OrderItem[]; status: string }
 
-const PAYMENT_METHODS = ['Cash', 'Telebirr', 'CBE Birr', 'Bank Transfer']
+const PAYMENT_METHODS = ['Cash', 'Telebirr', 'CBE', 'Abyssinia']
 
 export default function PaymentPage() {
   const searchParams = useSearchParams()
