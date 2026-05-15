@@ -17,10 +17,12 @@ export async function GET(req: Request) {
       include: {
         order: {
           include: {
+            table: true,
             waiter: { select: { fullName: true } },
             orderItems: { include: { menuItem: { include: { category: true } } } },
           },
         },
+        cashier: { select: { fullName: true } },
       },
     }),
     prisma.order.findMany({
@@ -66,6 +68,28 @@ export async function GET(req: Request) {
     staffPerf[name].revenue += p.amount
   })
 
+  // Transactions
+  const transactions = payments.map(p => ({
+    id: p.id,
+    date: p.createdAt,
+    amount: p.amount,
+    method: p.method,
+    cashier: p.cashier?.fullName || 'Unknown',
+    waiter: p.order.waiter.fullName,
+    table: p.order.table.number,
+    items: p.order.orderItems.map((oi: any) => `${oi.quantity}x ${oi.menuItem.name}`).join(', ')
+  }))
+
+  // Daily Sales
+  const dailyMap: Record<string, { date: string; orders: number; revenue: number }> = {}
+  payments.forEach(p => {
+    const d = new Date(p.createdAt).toISOString().split('T')[0]
+    if (!dailyMap[d]) dailyMap[d] = { date: d, orders: 0, revenue: 0 }
+    dailyMap[d].orders++
+    dailyMap[d].revenue += p.amount
+  })
+  const dailySales = Object.values(dailyMap).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+
   // Low stock items
   const lowStock = inventory.filter(i => i.stockQuantity <= i.lowStockThreshold)
 
@@ -78,5 +102,7 @@ export async function GET(req: Request) {
     cancellations,
     inventory,
     lowStock,
+    transactions,
+    dailySales
   })
 }

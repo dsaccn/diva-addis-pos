@@ -113,7 +113,7 @@ export default function PaymentPage() {
         <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '32px' }}>Table is now marked as Free.</p>
         <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
           <button className="btn btn-outline" onClick={printReceipt}><Printer size={15} /> Print Receipt Again</button>
-          <button className="btn btn-gold" onClick={() => router.push('/dashboard/tables')}>Back to Tables</button>
+          <button className="btn btn-gold" onClick={() => window.location.href = '/dashboard/tables'}>Back to Tables</button>
         </div>
       </div>
     )

@@ -11,6 +11,8 @@ interface ReportData {
   staffPerformance: { name: string; orders: number; revenue: number }[]
   cancellations: { id: string; orderItem: { menuItem: { name: string }; quantity: number; order: { table: { number: string }; waiter: { fullName: string } } }; manager: { fullName: string }; reason: string; createdAt: string }[]
   lowStock: { id: string; name: string; stockQuantity: number; lowStockThreshold: number }[]
+  transactions: { id: string; date: string; amount: number; method: string; cashier: string; waiter: string; table: string; items: string }[]
+  dailySales: { date: string; orders: number; revenue: number }[]
 }
 
 export default function ReportsPage() {
@@ -34,7 +36,7 @@ export default function ReportsPage() {
 
   function printReport() { window.print() }
 
-  const tabs = ['summary', 'best-sellers', 'staff', 'cancellations', 'inventory']
+  const tabs = ['summary', 'daily', 'history', 'best-sellers', 'staff', 'cancellations', 'inventory']
 
   if (loading) return <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>Loading reports...</div>
   if (!data) return null
@@ -84,7 +86,7 @@ export default function ReportsPage() {
       <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', overflowX: 'auto', paddingBottom: '4px' }}>
         {tabs.map(t => (
           <button key={t} className={`btn btn-sm ${activeTab === t ? 'btn-gold' : 'btn-outline'}`} onClick={() => setActiveTab(t)} style={{ whiteSpace: 'nowrap' }}>
-            {t === 'summary' ? '📊 Revenue' : t === 'best-sellers' ? '🏆 Best Sellers' : t === 'staff' ? '👤 Staff' : t === 'cancellations' ? '❌ Cancellations' : '📦 Inventory'}
+            {t === 'summary' ? '📊 Revenue' : t === 'daily' ? '📅 Daily Sales' : t === 'history' ? '📜 History' : t === 'best-sellers' ? '🏆 Best Sellers' : t === 'staff' ? '👤 Staff' : t === 'cancellations' ? '❌ Cancellations' : '📦 Inventory'}
           </button>
         ))}
       </div>
@@ -108,6 +110,60 @@ export default function ReportsPage() {
             )
           })}
           {Object.keys(data.revenueByMethod).length === 0 && <p style={{ color: 'var(--text-muted)' }}>No payment data yet.</p>}
+        </div>
+      )}
+
+      {/* Daily Sales */}
+      {activeTab === 'daily' && (
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ background: 'var(--black-hover)' }}>
+                {['Date', 'Orders', 'Revenue (ETB)'].map(h => (
+                  <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {data.dailySales.map((day, i) => (
+                <tr key={i} style={{ borderTop: '1px solid var(--black-border)' }}>
+                  <td style={{ padding: '12px 16px', fontWeight: '500' }}>{new Date(day.date).toLocaleDateString('en-ET', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}</td>
+                  <td style={{ padding: '12px 16px' }}>{day.orders}</td>
+                  <td style={{ padding: '12px 16px', color: 'var(--gold)', fontWeight: '600' }}>{day.revenue.toFixed(2)}</td>
+                </tr>
+              ))}
+              {data.dailySales.length === 0 && <tr><td colSpan={3} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No data yet.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Transaction History */}
+      {activeTab === 'history' && (
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ background: 'var(--black-hover)' }}>
+                {['Date & Time', 'Table', 'Waiter', 'Cashier', 'Items', 'Method', 'Total (ETB)'].map(h => (
+                  <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {data.transactions.map((tx) => (
+                <tr key={tx.id} style={{ borderTop: '1px solid var(--black-border)' }}>
+                  <td style={{ padding: '12px 16px', fontSize: '13px', color: 'var(--text-secondary)' }}>{new Date(tx.date).toLocaleString('en-ET')}</td>
+                  <td style={{ padding: '12px 16px', fontWeight: '600' }}>{tx.table}</td>
+                  <td style={{ padding: '12px 16px', fontSize: '13px' }}>{tx.waiter}</td>
+                  <td style={{ padding: '12px 16px', fontSize: '13px' }}>{tx.cashier}</td>
+                  <td style={{ padding: '12px 16px', fontSize: '13px', color: 'var(--text-secondary)', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={tx.items}>{tx.items}</td>
+                  <td style={{ padding: '12px 16px', fontSize: '13px' }}>{tx.method}</td>
+                  <td style={{ padding: '12px 16px', color: 'var(--gold)', fontWeight: '600' }}>{tx.amount.toFixed(2)}</td>
+                </tr>
+              ))}
+              {data.transactions.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No transactions found.</td></tr>}
+            </tbody>
+          </table>
         </div>
       )}
 

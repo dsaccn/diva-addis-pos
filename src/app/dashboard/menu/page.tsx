@@ -4,17 +4,20 @@ import { useEffect, useState, useCallback } from 'react'
 import { Plus, Pencil, Trash2, Eye, EyeOff } from 'lucide-react'
 
 interface Category { id: string; name: string; type: string }
-interface MenuItem { id: string; name: string; description?: string; price: number; available: boolean; stockQuantity: number; lowStockThreshold: number; category: Category }
+interface Ingredient { id: string; name: string; unit: string; currentStock: number }
+interface MenuItem { id: string; name: string; description?: string; price: number; available: boolean; stockQuantity: number; lowStockThreshold: number; category: Category; recipes?: any[] }
 
 const EMPTY_FORM = { name: '', description: '', price: '', categoryId: '', available: true, stockQuantity: '0', lowStockThreshold: '5' }
 
 export default function MenuPage() {
   const [items, setItems] = useState<MenuItem[]>([])
   const [categories, setCategories] = useState<Category[]>([])
+  const [ingredients, setIngredients] = useState<Ingredient[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editItem, setEditItem] = useState<MenuItem | null>(null)
   const [form, setForm] = useState(EMPTY_FORM)
+  const [formRecipes, setFormRecipes] = useState<{ingredientId: string, quantity: string}[]>([])
   const [filterCat, setFilterCat] = useState('')
   const [showCatForm, setShowCatForm] = useState(false)
   const [catForm, setCatForm] = useState({ id: '', name: '', type: 'FOOD' })
@@ -23,9 +26,10 @@ export default function MenuPage() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const [itemsRes, catsRes] = await Promise.all([fetch('/api/menu-items'), fetch('/api/categories')])
+    const [itemsRes, catsRes, ingsRes] = await Promise.all([fetch('/api/menu-items'), fetch('/api/categories'), fetch('/api/ingredients')])
     setItems(await itemsRes.json())
     setCategories(await catsRes.json())
+    setIngredients(await ingsRes.json())
     setLoading(false)
   }, [])
 
@@ -34,15 +38,22 @@ export default function MenuPage() {
   function openEdit(item: MenuItem) {
     setEditItem(item)
     setForm({ name: item.name, description: item.description || '', price: String(item.price), categoryId: item.category?.id || '', available: item.available, stockQuantity: String(item.stockQuantity), lowStockThreshold: String(item.lowStockThreshold) })
+    setFormRecipes(item.recipes?.map((r: any) => ({ ingredientId: r.ingredientId, quantity: String(r.quantity) })) || [])
     setShowForm(true)
   }
 
-  function openNew() { setEditItem(null); setForm(EMPTY_FORM); setShowForm(true) }
+  function openNew() { setEditItem(null); setForm(EMPTY_FORM); setFormRecipes([]); setShowForm(true) }
 
   async function saveItem() {
     setSaving(true)
     setErrorMsg('')
-    const data = { ...form, price: parseFloat(form.price), stockQuantity: parseInt(form.stockQuantity), lowStockThreshold: parseInt(form.lowStockThreshold) }
+    const data = { 
+      ...form, 
+      price: parseFloat(form.price), 
+      stockQuantity: parseInt(form.stockQuantity), 
+      lowStockThreshold: parseInt(form.lowStockThreshold),
+      recipes: formRecipes.filter(r => r.ingredientId).map(r => ({ ingredientId: r.ingredientId, quantity: parseFloat(r.quantity) }))
+    }
     
     let res;
     if (editItem) {
@@ -222,6 +233,32 @@ export default function MenuPage() {
                 <label className="input-label">Low Stock Alert At</label>
                 <input className="input" type="number" value={form.lowStockThreshold} onChange={e => setForm(f => ({ ...f, lowStockThreshold: e.target.value }))} />
               </div>
+              
+              {/* Recipe Section */}
+              <div style={{ gridColumn: '1/-1', borderTop: '1px solid var(--black-border)', paddingTop: '16px', marginTop: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <label className="input-label" style={{ marginBottom: 0 }}>Recipe / Ingredients (Optional)</label>
+                  <button className="btn btn-outline btn-sm" onClick={() => setFormRecipes([...formRecipes, { ingredientId: '', quantity: '1' }])}><Plus size={12}/> Add Ingredient</button>
+                </div>
+                {formRecipes.length === 0 && <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>No ingredients linked. Used for inventory tracking.</div>}
+                {formRecipes.map((fr, idx) => (
+                  <div key={idx} style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                    <select className="input" style={{ flex: 1 }} value={fr.ingredientId} onChange={e => {
+                      const newR = [...formRecipes]; newR[idx].ingredientId = e.target.value; setFormRecipes(newR);
+                    }}>
+                      <option value="">Select ingredient...</option>
+                      {ingredients.map(ing => <option key={ing.id} value={ing.id}>{ing.name} ({ing.unit})</option>)}
+                    </select>
+                    <input className="input" style={{ width: '100px' }} type="number" step="any" placeholder="Qty" value={fr.quantity} onChange={e => {
+                      const newR = [...formRecipes]; newR[idx].quantity = e.target.value; setFormRecipes(newR);
+                    }} />
+                    <button className="btn btn-outline btn-sm" style={{ padding: '0 10px', color: 'var(--danger-light)', borderColor: 'var(--danger-light)' }} onClick={() => {
+                      const newR = [...formRecipes]; newR.splice(idx, 1); setFormRecipes(newR);
+                    }}><Trash2 size={14}/></button>
+                  </div>
+                ))}
+              </div>
+              
             </div>
             <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
               <button className="btn btn-gold" style={{ flex: 1 }} onClick={saveItem} disabled={saving}>{saving ? 'Saving...' : editItem ? 'Save Changes' : 'Add Item'}</button>
