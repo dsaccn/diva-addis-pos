@@ -156,7 +156,7 @@ export default function ReportsPage() {
                   const maxRev = Math.max(...data.dailySales.map(d => d.revenue))
                   const heightPct = Math.max((day.revenue / maxRev) * 100, 5)
                   return (
-                    <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', gap: '8px', group: 'true', position: 'relative' }}>
+                    <div key={i} className="group" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', gap: '8px', position: 'relative' }}>
                       <div style={{ position: 'absolute', top: '-30px', background: 'var(--black-card)', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', border: '1px solid var(--gold)', opacity: 0, transition: 'opacity 0.2s' }} className="hover-tooltip">
                         {formatMoney(day.revenue)}
                       </div>
