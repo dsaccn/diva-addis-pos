@@ -2,7 +2,11 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
 export async function GET() {
-  const tables = await prisma.table.findMany({ orderBy: { number: 'asc' } })
+  const tables = await prisma.table.findMany()
+  
+  // Sort tables naturally (e.g. 1, 2, 3... 10, 11 instead of 1, 10, 11, 2)
+  tables.sort((a, b) => a.number.localeCompare(b.number, undefined, { numeric: true, sensitivity: 'base' }))
+  
   return NextResponse.json(tables)
 }
 

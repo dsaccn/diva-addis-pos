@@ -30,6 +30,7 @@ export default function OrderDetailPage() {
   const [loading, setLoading] = useState(true)
   const [session, setSession] = useState<{ id: string; username: string; fullName: string; role: string } | null>(null)
   const [cancelTarget, setCancelTarget] = useState<OrderItem | null>(null)
+  const [cancelQuantity, setCancelQuantity] = useState<number>(1)
   const [cancelReason, setCancelReason] = useState('')
   const [managerPassword, setManagerPassword] = useState('')
   const [cancelLoading, setCancelLoading] = useState(false)
@@ -45,7 +46,7 @@ export default function OrderDetailPage() {
 
   useEffect(() => { load() }, [load])
 
-  function printCancellationTicket(item: OrderItem, tableNumber: string) {
+  function printCancellationTicket(item: OrderItem, tableNumber: string, qty: number) {
     const win = window.open('', '_blank', 'width=350,height=500')
     if (!win) return
     const now = new Date().toLocaleString('en-ET', { timeZone: 'Africa/Addis_Ababa' })
@@ -60,7 +61,7 @@ export default function OrderDetailPage() {
         <b>Date:</b> ${now}
       </div>
       <hr style="border-top:1px dashed #000;margin:8px 0;"/>
-      <div style="font-size:14px;"><b>CANCEL: ${item.quantity}x ${item.menuItem.name}</b></div>
+      <div style="font-size:14px;"><b>CANCEL: ${qty}x ${item.menuItem.name}</b></div>
       <div style="font-size:12px;margin-top:8px;color:#555;">Reason: ${cancelReason}</div>
       <hr style="border-top:1px dashed #000;margin:8px 0;"/>
       <div style="text-align:center;font-size:11px;">— Diva Addis Lounge —</div>
@@ -87,11 +88,12 @@ export default function OrderDetailPage() {
 
     await fetch('/api/cancellations', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ orderItemId: cancelTarget.id, managerId: session.id, reason: cancelReason }),
+      body: JSON.stringify({ orderItemId: cancelTarget.id, managerId: session.id, reason: cancelReason, cancelQuantity }),
     })
 
-    printCancellationTicket(cancelTarget, order!.table.number)
+    printCancellationTicket(cancelTarget, order!.table.number, cancelQuantity)
     setCancelTarget(null)
+    setCancelQuantity(1)
     setCancelReason('')
     setMangerPassword('')
     load()
@@ -184,7 +186,7 @@ export default function OrderDetailPage() {
             <div style={{ textAlign: 'right' }}>
               <div style={{ color: 'var(--gold)', fontWeight: '600' }}>{(item.menuItem.price * item.quantity).toFixed(2)} ETB</div>
               {item.status !== 'CANCELLED' && order.status === 'OPEN' && (session?.role === 'ADMIN' || session?.role === 'MANAGER') && (
-                <button className="btn btn-ghost btn-sm" style={{ padding: '3px 6px', fontSize: '11px', color: 'var(--danger-light)', marginTop: '4px' }} onClick={() => setCancelTarget(item)}>
+                <button className="btn btn-ghost btn-sm" style={{ padding: '3px 6px', fontSize: '11px', color: 'var(--danger-light)', marginTop: '4px' }} onClick={() => { setCancelTarget(item); setCancelQuantity(1); }}>
                   <X size={11} /> Cancel
                 </button>
               )}
@@ -221,12 +223,21 @@ export default function OrderDetailPage() {
               <h3 style={{ fontSize: '16px', fontWeight: '600' }}>Cancel Item</h3>
             </div>
             <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
-              Cancelling: <b style={{ color: 'var(--text-primary)' }}>{cancelTarget.quantity}x {cancelTarget.menuItem.name}</b>
+              Cancelling: <b style={{ color: 'var(--text-primary)' }}>{cancelQuantity}x {cancelTarget.menuItem.name}</b> (from total {cancelTarget.quantity}x)
             </p>
             {cancelTarget.status === 'PRINTED' && (
               <div style={{ background: 'rgba(244,162,97,0.1)', border: '1px solid var(--warning-light)', borderRadius: '8px', padding: '10px 14px', marginBottom: '16px', fontSize: '13px', color: 'var(--warning-light)' }}>
                 ⚠ This item has already been printed. A cancellation ticket will be printed for the kitchen/bar.
               </div>
+            )}
+            {cancelTarget.quantity > 1 && (
+              <>
+                <label className="input-label">Quantity to Cancel</label>
+                <input type="number" className="input" style={{ marginBottom: '12px' }} value={cancelQuantity} onChange={e => {
+                  const val = parseInt(e.target.value) || 1;
+                  setCancelQuantity(Math.min(Math.max(1, val), cancelTarget.quantity));
+                }} min={1} max={cancelTarget.quantity} />
+              </>
             )}
             <label className="input-label">Reason for Cancellation</label>
             <input className="input" style={{ marginBottom: '12px' }} placeholder="e.g. Customer changed mind" value={cancelReason} onChange={e => setCancelReason(e.target.value)} autoFocus />
