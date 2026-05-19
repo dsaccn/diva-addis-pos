@@ -64,10 +64,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         where: { id: item.menuItemId },
         include: { category: true },
       })
-      if (menuItem?.category?.type === 'DRINK' && menuItem.stockQuantity > 0) {
+      if (menuItem?.category?.type === 'DRINK' && menuItem.barQuantity > 0) {
         await prisma.menuItem.update({
           where: { id: item.menuItemId },
-          data: { stockQuantity: { decrement: item.quantity } },
+          data: { barQuantity: { decrement: item.quantity } },
         })
       }
     }

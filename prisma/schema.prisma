@@ -39,13 +39,19 @@ model MenuItem {
   description       String?
   price             Float
   available         Boolean  @default(true)
-  stockQuantity     Int      @default(0)
+  stockQuantity     Int      @default(0) // Used as Store Quantity
+  barQuantity       Int      @default(0) // Used as Bar Quantity
+  costPrice         Float    @default(0) // Bought/cost price per unit
   lowStockThreshold Int      @default(5)
+  parentItemId      String?              // If set, this item is a unit of a parent (e.g. Jambo -> Single)
+  unitMultiplier    Float    @default(1) // How many parent units this item equals (e.g. 1.5)
   createdAt         DateTime @default(now())
 
   category   Category?   @relation(fields: [categoryId], references: [id])
   orderItems OrderItem[]
   recipes    Recipe[]
+  parentItem MenuItem?   @relation("UnitLink", fields: [parentItemId], references: [id], onDelete: SetNull)
+  childItems MenuItem[]  @relation("UnitLink")
 }
 
 model Table {

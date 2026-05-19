@@ -78,13 +78,43 @@ export async function POST(req: Request) {
     // Update table status to OCCUPIED
     await prisma.table.update({ where: { id: tableId }, data: { status: 'OCCUPIED' } })
 
-    // Deduct drink bottle stock
+    // Deduct drink bottle stock from Bar (respects unit linking)
     for (const item of order.orderItems) {
-      if (item.menuItem.category?.type === 'DRINK' && item.menuItem.stockQuantity > 0) {
-        await prisma.menuItem.update({
+      if (item.menuItem.category?.type === 'DRINK') {
+        const fullItem = await prisma.menuItem.findUnique({
           where: { id: item.menuItemId },
-          data: { stockQuantity: { decrement: item.quantity } },
+          include: { parentItem: true },
         })
+        if (!fullItem) continue
+
+        if (fullItem.parentItemId && fullItem.parentItem) {
+          // Linked item (e.g. Jambo): deduct from parent's bar stock using multiplier
+          const deductQty = Math.round(item.quantity * fullItem.unitMultiplier * 100) / 100
+          const parentCurrent = fullItem.parentItem as any
+          const newBarQty = Math.max(0, (parentCurrent.barQuantity ?? 0) - deductQty)
+          await prisma.menuItem.update({
+            where: { id: fullItem.parentItemId },
+            data: { barQuantity: newBarQty },
+          })
+        } else {
+          // Normal item: deduct from its own bar stock. If bar empty, deduct from store.
+          if (fullItem.barQuantity >= item.quantity) {
+            await prisma.menuItem.update({
+              where: { id: item.menuItemId },
+              data: { barQuantity: { decrement: item.quantity } },
+            })
+          } else {
+            // Bar is empty or insufficient — deduct from store stock directly
+            const remaining = item.quantity - fullItem.barQuantity
+            await prisma.menuItem.update({
+              where: { id: item.menuItemId },
+              data: {
+                barQuantity: 0,
+                stockQuantity: { decrement: remaining },
+              },
+            })
+          }
+        }
       }
     }
 

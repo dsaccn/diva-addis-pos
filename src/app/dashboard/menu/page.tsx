@@ -1,13 +1,13 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { Plus, Pencil, Trash2, Eye, EyeOff } from 'lucide-react'
+import { Plus, Pencil, Trash2, Eye, EyeOff, Search } from 'lucide-react'
 
 interface Category { id: string; name: string; type: string }
 interface Ingredient { id: string; name: string; unit: string; currentStock: number }
-interface MenuItem { id: string; name: string; description?: string; price: number; available: boolean; stockQuantity: number; lowStockThreshold: number; category: Category; recipes?: any[] }
+interface MenuItem { id: string; name: string; description?: string; price: number; available: boolean; stockQuantity: number; lowStockThreshold: number; category: Category; recipes?: any[]; parentItemId?: string | null; unitMultiplier?: number }
 
-const EMPTY_FORM = { name: '', description: '', price: '', categoryId: '', available: true, stockQuantity: '0', lowStockThreshold: '5' }
+const EMPTY_FORM = { name: '', description: '', price: '', categoryId: '', available: true, stockQuantity: '0', lowStockThreshold: '5', parentItemId: '', unitMultiplier: '1' }
 
 export default function MenuPage() {
   const [items, setItems] = useState<MenuItem[]>([])
@@ -23,6 +23,7 @@ export default function MenuPage() {
   const [catForm, setCatForm] = useState({ id: '', name: '', type: 'FOOD' })
   const [saving, setSaving] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -37,7 +38,7 @@ export default function MenuPage() {
 
   function openEdit(item: MenuItem) {
     setEditItem(item)
-    setForm({ name: item.name, description: item.description || '', price: String(item.price), categoryId: item.category?.id || '', available: item.available, stockQuantity: String(item.stockQuantity), lowStockThreshold: String(item.lowStockThreshold) })
+    setForm({ name: item.name, description: item.description || '', price: String(item.price), categoryId: item.category?.id || '', available: item.available, stockQuantity: String(item.stockQuantity), lowStockThreshold: String(item.lowStockThreshold), parentItemId: item.parentItemId || '', unitMultiplier: String(item.unitMultiplier ?? 1) })
     setFormRecipes(item.recipes?.map((r: any) => ({ ingredientId: r.ingredientId, quantity: String(r.quantity) })) || [])
     setShowForm(true)
   }
@@ -52,6 +53,8 @@ export default function MenuPage() {
       price: parseFloat(form.price), 
       stockQuantity: parseInt(form.stockQuantity), 
       lowStockThreshold: parseInt(form.lowStockThreshold),
+      parentItemId: form.parentItemId || null,
+      unitMultiplier: parseFloat(form.unitMultiplier) || 1,
       recipes: formRecipes.filter(r => r.ingredientId).map(r => ({ ingredientId: r.ingredientId, quantity: parseFloat(r.quantity) }))
     }
     
@@ -117,7 +120,11 @@ export default function MenuPage() {
     load()
   }
 
-  const filtered = filterCat ? items.filter(i => i.category?.id === filterCat) : items
+  const filtered = items.filter(i => {
+    if (filterCat && i.category?.id !== filterCat) return false
+    if (searchQuery && !i.name.toLowerCase().includes(searchQuery.toLowerCase())) return false
+    return true
+  })
 
   return (
     <div className="animate-fade-in">
@@ -139,13 +146,26 @@ export default function MenuPage() {
       )}
 
       {/* Category filter */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', overflowX: 'auto', paddingBottom: '4px' }}>
-        <button className={`btn btn-sm ${!filterCat ? 'btn-gold' : 'btn-outline'}`} onClick={() => setFilterCat('')}>All</button>
-        {categories.map(c => (
-          <button key={c.id} className={`btn btn-sm ${filterCat === c.id ? 'btn-gold' : 'btn-outline'}`} onClick={() => setFilterCat(c.id)}>
-            {c.type === 'FOOD' ? '🍽' : '🍹'} {c.name}
-          </button>
-        ))}
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
+          <button className={`btn btn-sm ${!filterCat ? 'btn-gold' : 'btn-outline'}`} onClick={() => setFilterCat('')}>All</button>
+          {categories.map(c => (
+            <button key={c.id} className={`btn btn-sm ${filterCat === c.id ? 'btn-gold' : 'btn-outline'}`} onClick={() => setFilterCat(c.id)}>
+              {c.type === 'FOOD' ? '🍽' : '🍹'} {c.name}
+            </button>
+          ))}
+        </div>
+        <div style={{ position: 'relative', flex: '1', minWidth: '200px', maxWidth: '300px' }}>
+          <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+          <input
+            type="text"
+            placeholder="Search menu items..."
+            className="input"
+            style={{ paddingLeft: '36px', height: '36px', fontSize: '13px' }}
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+          />
+        </div>
       </div>
 
       {/* Items Table */}
@@ -234,6 +254,28 @@ export default function MenuPage() {
                 <input className="input" type="number" value={form.lowStockThreshold} onChange={e => setForm(f => ({ ...f, lowStockThreshold: e.target.value }))} />
               </div>
               
+              {/* Unit Linking Section */}
+              <div style={{ gridColumn: '1/-1', borderTop: '1px solid var(--black-border)', paddingTop: '16px', marginTop: '4px' }}>
+                <label className="input-label" style={{ marginBottom: '4px' }}>Unit Size Link (Optional)</label>
+                <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '10px' }}>Link this item to a parent item. E.g. "Jambo" links to "Single" with multiplier 3.</p>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <div style={{ flex: 2 }}>
+                    <label className="input-label">Parent Item</label>
+                    <select className="input" value={form.parentItemId} onChange={e => setForm(f => ({ ...f, parentItemId: e.target.value }))}>
+                      <option value="">None (standalone item)</option>
+                      {items.filter(i => !editItem || i.id !== editItem.id).map(i => (
+                        <option key={i.id} value={i.id}>{i.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label className="input-label">Multiplier</label>
+                    <input className="input" type="number" min="0.01" step="0.01" value={form.unitMultiplier} onChange={e => setForm(f => ({ ...f, unitMultiplier: e.target.value }))} disabled={!form.parentItemId} placeholder="e.g. 1.5" />
+                  </div>
+                </div>
+                {form.parentItemId && <p style={{ fontSize: '12px', color: 'var(--gold)', marginTop: '6px' }}>✓ 1 {form.name || 'this item'} = {form.unitMultiplier}× {items.find(i => i.id === form.parentItemId)?.name || '...'}</p>}
+              </div>
+
               {/* Recipe Section */}
               <div style={{ gridColumn: '1/-1', borderTop: '1px solid var(--black-border)', paddingTop: '16px', marginTop: '8px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>

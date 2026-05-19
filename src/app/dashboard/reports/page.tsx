@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import { Printer, RefreshCw, TrendingUp, DollarSign, ShoppingBag, XCircle, AlertTriangle } from 'lucide-react'
 
 interface ReportData {
@@ -12,7 +12,7 @@ interface ReportData {
   cancellations: { id: string; orderItem: { menuItem: { name: string }; quantity: number; order: { table: { number: string }; waiter: { fullName: string } } }; manager: { fullName: string }; reason: string; createdAt: string }[]
   lowStock: { id: string; name: string; stockQuantity: number; lowStockThreshold: number }[]
   transactions: { id: string; date: string; amount: number; method: string; cashier: string; waiter: string; table: string; items: string }[]
-  dailySales: { date: string; orders: number; revenue: number }[]
+  dailySales: { date: string; orders: number; revenue: number; categories: { categoryName: string; items: { name: string; quantity: number; revenue: number }[] }[] }[]
 }
 
 export default function ReportsPage() {
@@ -21,6 +21,7 @@ export default function ReportsPage() {
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
   const [activeTab, setActiveTab] = useState('summary')
+  const [selectedDay, setSelectedDay] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -151,29 +152,31 @@ export default function ReportsPage() {
               <TrendingUp size={18} color="var(--gold)" /> Daily Revenue Trends
             </h3>
             {data.dailySales.length > 0 ? (
-              <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', gap: '12px', height: '250px', padding: '20px 0 0', borderBottom: '1px solid var(--black-border)' }}>
-                {data.dailySales.slice(0, 14).reverse().map((day, i) => {
-                  const maxRev = Math.max(...data.dailySales.map(d => d.revenue))
-                  const heightPct = Math.max((day.revenue / maxRev) * 100, 5)
-                  return (
-                    <div key={i} className="group" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', gap: '8px', position: 'relative' }}>
-                      <div style={{ position: 'absolute', top: '-30px', background: 'var(--black-card)', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', border: '1px solid var(--gold)', opacity: 0, transition: 'opacity 0.2s' }} className="hover-tooltip">
-                        {formatMoney(day.revenue)}
+              <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+                <div style={{ position: 'relative', height: '220px', display: 'flex', alignItems: 'flex-end', gap: '6px', borderBottom: '2px solid var(--black-border)', marginBottom: '8px' }}>
+                  {data.dailySales.slice(0, 14).reverse().map((day, i) => {
+                    const maxRev = Math.max(...data.dailySales.slice(0, 14).map(d => d.revenue))
+                    const heightPct = maxRev > 0 ? Math.max((day.revenue / maxRev) * 100, 4) : 4
+                    return (
+                      <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: '100%', position: 'relative' }} title={`${new Date(day.date).toLocaleDateString()} — ${formatMoney(day.revenue)}`}>
+                        <div style={{ width: '100%', height: `${heightPct}%`, background: 'linear-gradient(to top, var(--gold-dark, #a87b20), var(--gold, #d4af37))', borderRadius: '4px 4px 0 0', transition: 'filter 0.2s', cursor: 'pointer' }} onMouseEnter={e => (e.currentTarget.style.filter = 'brightness(1.3)')} onMouseLeave={e => (e.currentTarget.style.filter = 'none')} />
                       </div>
-                      <div style={{ width: '100%', height: `${heightPct}%`, background: 'linear-gradient(to top, rgba(212,175,55,0.2), rgba(212,175,55,0.8))', borderRadius: '4px 4px 0 0', cursor: 'pointer', transition: 'all 0.3s' }} className="bar-hover" title={`${new Date(day.date).toLocaleDateString()} - ${formatMoney(day.revenue)}`} />
-                      <div style={{ fontSize: '10px', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%', textAlign: 'center' }}>
-                        {new Date(day.date).getDate()}/{new Date(day.date).getMonth()+1}
-                      </div>
+                    )
+                  })}
+                </div>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  {data.dailySales.slice(0, 14).reverse().map((day, i) => (
+                    <div key={i} style={{ flex: 1, textAlign: 'center', fontSize: '10px', color: 'var(--text-muted)' }}>
+                      {new Date(day.date).getDate()}/{new Date(day.date).getMonth() + 1}
                     </div>
-                  )
-                })}
+                  ))}
+                </div>
               </div>
             ) : (
-              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>No daily sales data available.</div>
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>No daily sales data yet.</div>
             )}
             <style dangerouslySetInnerHTML={{__html: `
               .bar-hover:hover { filter: brightness(1.3); }
-              .bar-hover:hover + .hover-tooltip { opacity: 1; }
             `}} />
           </div>
 
@@ -251,17 +254,86 @@ export default function ReportsPage() {
           </div>
         );
 
-        if (activeTab === 'daily') return renderTable(
-          ['Date', 'Total Orders', 'Revenue (ETB)', 'Avg Order Value'],
-          () => data.dailySales.map((day, i) => (
-            <tr key={i} className="table-row-hover" style={{ borderBottom: '1px solid var(--black-border)' }}>
-              <td style={{ padding: '16px 20px', fontWeight: '600', color: 'var(--text-primary)' }}>{new Date(day.date).toLocaleDateString('en-ET', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</td>
-              <td style={{ padding: '16px 20px' }}><span className="badge badge-outline">{day.orders}</span></td>
-              <td style={{ padding: '16px 20px', color: 'var(--gold)', fontWeight: '700', fontSize: '15px' }}>{formatMoney(day.revenue)}</td>
-              <td style={{ padding: '16px 20px', color: 'var(--text-secondary)' }}>{day.orders > 0 ? formatMoney(day.revenue / day.orders) : '-'}</td>
-            </tr>
-          )),
-          'No daily sales data available.', data.dailySales.length === 0
+        if (activeTab === 'daily') return (
+          <div className="card" style={{ padding: 0, overflow: 'hidden', border: '1px solid var(--black-border)', boxShadow: '0 4px 20px rgba(0,0,0,0.3)' }}>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--black-border)' }}>
+                    {['Date', 'Total Orders', 'Revenue (ETB)', 'Avg Order Value', ''].map(h => (
+                      <th key={h} style={{ padding: '16px 20px', textAlign: 'left', fontSize: '12px', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.dailySales.length === 0 ? (
+                    <tr><td colSpan={5} style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>No daily sales data available.</td></tr>
+                  ) : data.dailySales.map((day) => (
+                    <React.Fragment key={day.date}>
+                      <tr
+                        className="table-row-hover"
+                        style={{ borderBottom: selectedDay === day.date ? 'none' : '1px solid var(--black-border)', cursor: 'pointer', background: selectedDay === day.date ? 'rgba(212,175,55,0.06)' : 'transparent' }}
+                        onClick={() => setSelectedDay(selectedDay === day.date ? null : day.date)}
+                      >
+                        <td style={{ padding: '16px 20px', fontWeight: '600', color: 'var(--text-primary)' }}>
+                          <span style={{ marginRight: '8px', fontSize: '12px', color: 'var(--gold)' }}>{selectedDay === day.date ? '▼' : '▶'}</span>
+                          {new Date(day.date).toLocaleDateString('en-ET', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                        </td>
+                        <td style={{ padding: '16px 20px' }}><span className="badge badge-outline">{day.orders}</span></td>
+                        <td style={{ padding: '16px 20px', color: 'var(--gold)', fontWeight: '700', fontSize: '15px' }}>{formatMoney(day.revenue)}</td>
+                        <td style={{ padding: '16px 20px', color: 'var(--text-secondary)' }}>{day.orders > 0 ? formatMoney(day.revenue / day.orders) : '-'}</td>
+                        <td style={{ padding: '16px 20px', fontSize: '12px', color: 'var(--text-muted)' }}>Click to expand</td>
+                      </tr>
+                      {selectedDay === day.date && (
+                        <tr key={day.date + '-detail'}>
+                          <td colSpan={5} style={{ padding: '0', borderBottom: '1px solid var(--black-border)', background: 'rgba(212,175,55,0.03)' }}>
+                            <div style={{ padding: '20px 32px 24px' }}>
+                              <div style={{ fontSize: '13px', color: 'var(--gold)', fontWeight: '600', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                📋 Breakdown for {new Date(day.date).toLocaleDateString('en-ET', { weekday: 'long', month: 'long', day: 'numeric' })}
+                              </div>
+                              {day.categories.length === 0 ? (
+                                <div style={{ color: 'var(--text-muted)', fontSize: '13px' }}>No item details available.</div>
+                              ) : day.categories.map(cat => {
+                                const catTotalQty = cat.items.reduce((s, i) => s + i.quantity, 0)
+                                const catTotalRev = cat.items.reduce((s, i) => s + i.revenue, 0)
+                                return (
+                                  <div key={cat.categoryName} style={{ marginBottom: '20px' }}>
+                                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px', paddingBottom: '6px', borderBottom: '1px solid var(--black-border)' }}>
+                                      {cat.categoryName}
+                                    </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: '0' }}>
+                                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', padding: '4px 8px', fontWeight: '600' }}>ITEM</div>
+                                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', padding: '4px 16px', fontWeight: '600', textAlign: 'center' }}>QTY</div>
+                                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', padding: '4px 8px', fontWeight: '600', textAlign: 'right' }}>REVENUE</div>
+                                      {cat.items.map(item => (
+                                        <React.Fragment key={item.name}>
+                                          <div style={{ padding: '6px 8px', fontSize: '14px', color: 'var(--text-primary)', borderTop: '1px solid rgba(255,255,255,0.03)' }}>{item.name}</div>
+                                          <div style={{ padding: '6px 16px', fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)', textAlign: 'center', borderTop: '1px solid rgba(255,255,255,0.03)' }}>{item.quantity}</div>
+                                          <div style={{ padding: '6px 8px', fontSize: '14px', color: 'var(--gold)', fontWeight: '600', textAlign: 'right', borderTop: '1px solid rgba(255,255,255,0.03)' }}>{formatMoney(item.revenue)}</div>
+                                        </React.Fragment>
+                                      ))}
+                                      {/* Category subtotal */}
+                                      <div style={{ padding: '8px 8px 4px', fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)', borderTop: '1px solid var(--black-border)' }}>Subtotal</div>
+                                      <div style={{ padding: '8px 16px 4px', fontSize: '13px', fontWeight: '700', color: 'white', textAlign: 'center', borderTop: '1px solid var(--black-border)' }}>{catTotalQty}</div>
+                                      <div style={{ padding: '8px 8px 4px', fontSize: '13px', fontWeight: '700', color: 'white', textAlign: 'right', borderTop: '1px solid var(--black-border)' }}>{formatMoney(catTotalRev)}</div>
+                                    </div>
+                                  </div>
+                                )
+                              })}
+                              <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--black-border)', display: 'flex', justifyContent: 'flex-end', gap: '32px' }}>
+                                <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Total Orders: <b style={{ color: 'var(--text-primary)' }}>{day.orders}</b></span>
+                                <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Total Revenue: <b style={{ color: 'var(--gold)', fontSize: '15px' }}>{formatMoney(day.revenue)}</b></span>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         )
 
         if (activeTab === 'history') return renderTable(

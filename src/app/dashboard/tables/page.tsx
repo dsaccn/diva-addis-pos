@@ -50,7 +50,10 @@ export default function TablesPage() {
 
   async function deleteTable(id: string) {
     if (!confirm('Delete this table?')) return
-    await fetch(`/api/tables/${id}`, { method: 'DELETE' })
+    const res = await fetch(`/api/tables/${id}`, { method: 'DELETE' })
+    if (!res.ok) {
+      alert('Cannot delete this table. It has order history associated with it. Please wipe the test orders first if this is a test table.')
+    }
     load()
   }
 

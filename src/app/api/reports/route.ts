@@ -80,15 +80,40 @@ export async function GET(req: Request) {
     items: p.order.orderItems.map((oi: any) => `${oi.quantity}x ${oi.menuItem.name}`).join(', ')
   }))
 
-  // Daily Sales
-  const dailyMap: Record<string, { date: string; orders: number; revenue: number }> = {}
+  // Daily Sales with per-category item breakdown
+  const dailyMap: Record<string, {
+    date: string; orders: number; revenue: number
+    categories: Record<string, { categoryName: string; items: Record<string, { name: string; quantity: number; revenue: number }> }>
+  }> = {}
+
   payments.forEach(p => {
     const d = new Date(p.createdAt).toISOString().split('T')[0]
-    if (!dailyMap[d]) dailyMap[d] = { date: d, orders: 0, revenue: 0 }
+    if (!dailyMap[d]) dailyMap[d] = { date: d, orders: 0, revenue: 0, categories: {} }
     dailyMap[d].orders++
     dailyMap[d].revenue += p.amount
+
+    p.order.orderItems.forEach((oi: any) => {
+      if (oi.status === 'CANCELLED') return
+      const catName = oi.menuItem.category?.name || 'Uncategorized'
+      if (!dailyMap[d].categories[catName]) dailyMap[d].categories[catName] = { categoryName: catName, items: {} }
+      const key = oi.menuItemId
+      if (!dailyMap[d].categories[catName].items[key]) {
+        dailyMap[d].categories[catName].items[key] = { name: oi.menuItem.name, quantity: 0, revenue: 0 }
+      }
+      dailyMap[d].categories[catName].items[key].quantity += oi.quantity
+      dailyMap[d].categories[catName].items[key].revenue += oi.quantity * oi.menuItem.price
+    })
   })
-  const dailySales = Object.values(dailyMap).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+
+  const dailySales = Object.values(dailyMap)
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .map(d => ({
+      ...d,
+      categories: Object.values(d.categories).map(cat => ({
+        categoryName: cat.categoryName,
+        items: Object.values(cat.items).sort((a, b) => b.quantity - a.quantity)
+      }))
+    }))
 
   // Low stock items
   const lowStock = inventory.filter(i => i.stockQuantity <= i.lowStockThreshold)
