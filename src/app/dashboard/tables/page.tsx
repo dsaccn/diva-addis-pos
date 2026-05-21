@@ -28,9 +28,18 @@ export default function TablesPage() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const res = await fetch('/api/tables')
-    setTables(await res.json())
-    setLoading(false)
+    try {
+      const res = await fetch('/api/tables')
+      if (res.ok) {
+        setTables(await res.json())
+      } else {
+        console.error('Failed to load tables:', res.statusText)
+      }
+    } catch (err) {
+      console.error('Error loading tables:', err)
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   useEffect(() => { load() }, [load])

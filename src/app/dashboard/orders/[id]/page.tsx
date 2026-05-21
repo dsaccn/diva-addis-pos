@@ -38,10 +38,15 @@ export default function OrderDetailPage() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const [orderRes, sessRes] = await Promise.all([fetch(`/api/orders/${id}`), fetch('/api/auth/me')])
-    if (orderRes.ok) setOrder(await orderRes.json())
-    if (sessRes.ok) setSession(await sessRes.json())
-    setLoading(false)
+    try {
+      const [orderRes, sessRes] = await Promise.all([fetch(`/api/orders/${id}`), fetch('/api/auth/me')])
+      if (orderRes.ok) setOrder(await orderRes.json())
+      if (sessRes.ok) setSession(await sessRes.json())
+    } catch (err) {
+      console.error('Error loading order:', err)
+    } finally {
+      setLoading(false)
+    }
   }, [id])
 
   useEffect(() => { load() }, [load])

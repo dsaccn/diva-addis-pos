@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useState, useCallback } from 'react'
-import { Printer, RefreshCw, TrendingUp, DollarSign, ShoppingBag, XCircle, AlertTriangle } from 'lucide-react'
+import { Printer, RefreshCw, TrendingUp, DollarSign, ShoppingBag, XCircle, AlertTriangle, Download } from 'lucide-react'
 
 interface ReportData {
   totalRevenue: number
@@ -13,6 +13,30 @@ interface ReportData {
   lowStock: { id: string; name: string; stockQuantity: number; lowStockThreshold: number }[]
   transactions: { id: string; date: string; amount: number; method: string; cashier: string; waiter: string; table: string; items: string }[]
   dailySales: { date: string; orders: number; revenue: number; categories: { categoryName: string; items: { name: string; quantity: number; revenue: number }[] }[] }[]
+  categorizedReport: {
+    categories: {
+      categoryName: string
+      totalQuantity: number
+      totalRevenue: number
+      subCategories: {
+        subCategoryName: string
+        totalQuantity: number
+        totalRevenue: number
+        articles: {
+          code: string
+          name: string
+          quantity: number
+          avgAmount: number
+          totalAmount: number
+        }[]
+      }[]
+    }[]
+    subTotal: number
+    serviceCharge: number
+    discount: number
+    tax: number
+    grandTotal: number
+  }
 }
 
 export default function ReportsPage() {
@@ -25,21 +49,171 @@ export default function ReportsPage() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const params = new URLSearchParams()
-    if (from) params.set('from', from)
-    if (to) params.set('to', to)
-    const res = await fetch(`/api/reports?${params.toString()}`)
-    setData(await res.json())
-    setLoading(false)
+    try {
+      const params = new URLSearchParams()
+      if (from) params.set('from', from)
+      if (to) params.set('to', to)
+      const res = await fetch(`/api/reports?${params.toString()}`)
+      if (res.ok) {
+        setData(await res.json())
+      } else {
+        console.error('Failed to load reports:', res.statusText)
+      }
+    } catch (err) {
+      console.error('Error loading reports:', err)
+    } finally {
+      setLoading(false)
+    }
   }, [from, to])
 
   useEffect(() => { load() }, [load])
 
   function printReport() { window.print() }
 
+  function exportCategorizedToExcel() {
+    if (!data || !data.categorizedReport) return
+
+    const report = data.categorizedReport
+    const dateLabel = from || to
+      ? `from ${from || 'Start'} to ${to || 'End'}`
+      : `at the day of ${new Date().toLocaleDateString('en-US')}`
+
+    const tdBase = `border:1px solid #D1D5DB;padding:6px 10px;font-family:Arial,sans-serif;font-size:10pt;`
+    const numTd = `${tdBase}text-align:right;`
+
+    let bodyRows = ''
+
+    report.categories.forEach(cat => {
+      // Category heading row (teal)
+      bodyRows += `<tr style="background-color:#4F727C;color:#FFFFFF;">
+        <td colspan="7" style="${tdBase}font-weight:bold;font-size:11pt;text-transform:uppercase;background-color:#4F727C;color:#FFFFFF;border:1px solid #4F727C;">${cat.categoryName}</td>
+      </tr>`
+
+      cat.subCategories.forEach(sub => {
+        // Sub-category heading row (light blue-grey)
+        bodyRows += `<tr style="background-color:#CED9DC;color:#1F2937;">
+          <td style="${tdBase}background-color:#CED9DC;"></td>
+          <td colspan="6" style="${tdBase}font-weight:bold;text-transform:uppercase;background-color:#CED9DC;color:#1F2937;">${sub.subCategoryName}</td>
+        </tr>`
+
+        sub.articles.forEach(art => {
+          bodyRows += `<tr style="background-color:#FFFFFF;color:#374151;">
+            <td style="${tdBase}"></td>
+            <td style="${tdBase}"></td>
+            <td style="${tdBase}font-family:Courier New,monospace;">${art.code}</td>
+            <td style="${tdBase}">${art.name}</td>
+            <td style="${numTd}">${art.quantity.toFixed(2)}</td>
+            <td style="${numTd}">${art.avgAmount.toFixed(2)}</td>
+            <td style="${numTd}font-weight:600;">${art.totalAmount.toFixed(2)}</td>
+          </tr>`
+        })
+
+        // Sub-category total row
+        bodyRows += `<tr style="background-color:#F3F4F6;color:#111827;font-weight:bold;">
+          <td style="${tdBase}background-color:#F3F4F6;"></td>
+          <td style="${tdBase}background-color:#F3F4F6;"></td>
+          <td style="${tdBase}background-color:#F3F4F6;"></td>
+          <td style="${tdBase}background-color:#F3F4F6;">${sub.subCategoryName} Total</td>
+          <td style="${numTd}background-color:#F3F4F6;">${sub.totalQuantity.toFixed(2)}</td>
+          <td style="${tdBase}background-color:#F3F4F6;"></td>
+          <td style="${numTd}background-color:#F3F4F6;">${sub.totalRevenue.toFixed(2)}</td>
+        </tr>`
+      })
+
+      // Category total row
+      bodyRows += `<tr style="background-color:#E5E7EB;color:#111827;font-weight:bold;">
+        <td style="${tdBase}background-color:#E5E7EB;"></td>
+        <td style="${tdBase}background-color:#E5E7EB;"></td>
+        <td style="${tdBase}background-color:#E5E7EB;"></td>
+        <td style="${tdBase}background-color:#E5E7EB;">${cat.categoryName} Total</td>
+        <td style="${numTd}background-color:#E5E7EB;">${cat.totalQuantity.toFixed(2)}</td>
+        <td style="${tdBase}background-color:#E5E7EB;"></td>
+        <td style="${numTd}background-color:#E5E7EB;">${cat.totalRevenue.toFixed(2)}</td>
+      </tr>`
+    })
+
+    const summaryRows = [
+      ['Sub Total', report.subTotal.toFixed(2), '#F9FAFB'],
+      ['Discount', report.discount.toFixed(2), '#F9FAFB'],
+      ['Grand Total', report.grandTotal.toFixed(2), '#E5E7EB'],
+    ].map(([label, value, bg], i) => `
+      <tr style="background-color:${bg};${i === 2 ? 'font-weight:bold;font-size:11pt;border-top:3px double #111827;' : 'font-weight:600;'}">
+        <td colspan="5" style="${tdBase}border:none;background-color:#FFFFFF;"></td>
+        <td style="${tdBase}color:#4B5563;background-color:${bg};">${label}</td>
+        <td style="${numTd}color:#111827;background-color:${bg};">${value}</td>
+      </tr>`).join('')
+
+    const html = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta charset="UTF-8"/>
+        <!--[if gte mso 9]>
+        <xml>
+          <x:ExcelWorkbook>
+            <x:ExcelWorksheets>
+              <x:ExcelWorksheet>
+                <x:Name>Sales Report</x:Name>
+                <x:WorksheetOptions>
+                  <x:DisplayGridlines/>
+                </x:WorksheetOptions>
+              </x:ExcelWorksheet>
+            </x:ExcelWorksheets>
+          </x:ExcelWorkbook>
+        </xml>
+        <![endif]-->
+        <style>
+          table { border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; }
+          td, th { border: 1px solid #D1D5DB; }
+        </style>
+      </head>
+      <body>
+        <p style="text-align:center;font-size:16pt;font-weight:bold;font-family:Arial,sans-serif;margin-bottom:4px;color:#1F2937;">Categorized And Summarized By Article</p>
+        <p style="text-align:center;font-size:10pt;font-family:Arial,sans-serif;color:#4B5563;margin-bottom:16px;">
+          Cash Sales Voucher Report filtered by Void State = Not Void, ${dateLabel}
+        </p>
+        <table>
+          <colgroup>
+            <col width="120" style="width:90pt;"></col>
+            <col width="150" style="width:110pt;"></col>
+            <col width="110" style="width:80pt;"></col>
+            <col width="220" style="width:160pt;"></col>
+            <col width="90" style="width:65pt;"></col>
+            <col width="110" style="width:80pt;"></col>
+            <col width="120" style="width:90pt;"></col>
+          </colgroup>
+          <thead>
+            <tr style="background-color:#4F727C;color:#FFFFFF;">
+              <th style="${tdBase}text-align:left;font-weight:bold;background-color:#4F727C;color:#FFFFFF;">Category</th>
+              <th style="${tdBase}text-align:left;font-weight:bold;background-color:#4F727C;color:#FFFFFF;">Sub Category</th>
+              <th style="${tdBase}text-align:left;font-weight:bold;background-color:#4F727C;color:#FFFFFF;">Article Code</th>
+              <th style="${tdBase}text-align:left;font-weight:bold;background-color:#4F727C;color:#FFFFFF;">Article Name</th>
+              <th style="${numTd}font-weight:bold;background-color:#4F727C;color:#FFFFFF;">Quantity</th>
+              <th style="${numTd}font-weight:bold;background-color:#4F727C;color:#FFFFFF;">Avg Amount</th>
+              <th style="${numTd}font-weight:bold;background-color:#4F727C;color:#FFFFFF;">Total Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${bodyRows}
+            <tr><td colspan="7" style="padding:8px;border:none;background-color:#FFFFFF;"></td></tr>
+            ${summaryRows}
+          </tbody>
+        </table>
+      </body>
+      </html>`
+
+    const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `Categorized_Sales_Report_${from || new Date().toISOString().split('T')[0]}.xls`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   const tabs = [
     { id: 'summary', label: 'Dashboard', icon: <TrendingUp size={14}/> },
     { id: 'daily', label: 'Daily Sales', icon: <DollarSign size={14}/> },
+    { id: 'categorized', label: 'Categorized Report', icon: <TrendingUp size={14}/> },
     { id: 'history', label: 'Transaction History', icon: <ShoppingBag size={14}/> },
     { id: 'best-sellers', label: 'Best Sellers', icon: <TrendingUp size={14}/> },
     { id: 'staff', label: 'Staff Performance', icon: <TrendingUp size={14}/> },
@@ -253,6 +427,128 @@ export default function ReportsPage() {
             </div>
           </div>
         );
+
+        if (activeTab === 'categorized') {
+          const report = data.categorizedReport
+          if (!report || report.categories.length === 0) {
+            return (
+              <div className="card" style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
+                No sales data available for the selected period.
+              </div>
+            )
+          }
+
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <button className="btn btn-gold btn-sm" onClick={exportCategorizedToExcel}>
+                  <Download size={14} style={{ marginRight: '6px' }} /> Export to Excel
+                </button>
+              </div>
+
+              <div style={{ background: '#FFFFFF', color: '#1A1A1A', borderRadius: '12px', padding: '32px', boxShadow: '0 4px 30px rgba(0,0,0,0.4)', overflowX: 'auto', border: '1px solid #E5E7EB' }}>
+                <div style={{ textAlign: 'center', marginBottom: '24px', fontFamily: '"Courier New", Courier, monospace' }}>
+                  <h2 style={{ fontSize: '20px', fontWeight: 'bold', margin: '0 0 6px', color: '#1F2937', letterSpacing: '0.5px' }}>Categorized And Summarized By Article</h2>
+                  <p style={{ fontSize: '12px', color: '#4B5563', margin: 0 }}>
+                    Cash Sales Voucher Report filtered by Void State = Not Void, {from || to ? `from ${from || 'Start'} to ${to || 'End'}` : `at the day of ${new Date().toLocaleDateString('en-US')}`}
+                  </p>
+                </div>
+
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', fontFamily: 'Arial, sans-serif' }}>
+                  <thead>
+                    <tr style={{ background: '#4F727C', color: '#FFFFFF', borderBottom: '2px solid #1F2937' }}>
+                      <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 'bold' }}>Category</th>
+                      <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 'bold' }}>Sub Category</th>
+                      <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 'bold' }}>Article Code</th>
+                      <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 'bold' }}>Article Name</th>
+                      <th style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 'bold' }}>Quantity</th>
+                      <th style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 'bold' }}>Avg Amount</th>
+                      <th style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 'bold' }}>Total Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {report.categories.map((cat, catIdx) => (
+                      <React.Fragment key={cat.categoryName}>
+                        {/* Category Heading Row */}
+                        <tr style={{ background: '#598B9C', color: '#FFFFFF' }}>
+                          <td colSpan={7} style={{ padding: '8px 12px', fontWeight: 'bold', fontSize: '14px', textTransform: 'uppercase' }}>
+                            {cat.categoryName}
+                          </td>
+                        </tr>
+
+                        {cat.subCategories.map((sub, subIdx) => (
+                          <React.Fragment key={sub.subCategoryName}>
+                            {/* Sub Category Heading Row */}
+                            <tr style={{ background: '#CED9DC', color: '#1F2937' }}>
+                              <td style={{ padding: '6px 12px' }}></td>
+                              <td colSpan={6} style={{ padding: '6px 12px', fontWeight: 'bold', fontSize: '13px', textTransform: 'uppercase' }}>
+                                {sub.subCategoryName}
+                              </td>
+                            </tr>
+
+                            {sub.articles.map((art) => (
+                              <tr key={art.code} style={{ borderBottom: '1px solid #E5E7EB', color: '#374151' }}>
+                                <td style={{ padding: '6px 12px' }}></td>
+                                <td style={{ padding: '6px 12px' }}></td>
+                                <td style={{ padding: '6px 12px', fontFamily: 'monospace' }}>{art.code}</td>
+                                <td style={{ padding: '6px 12px' }}>{art.name}</td>
+                                <td style={{ padding: '6px 12px', textAlign: 'right' }}>{art.quantity.toFixed(2)}</td>
+                                <td style={{ padding: '6px 12px', textAlign: 'right' }}>{art.avgAmount.toFixed(2)}</td>
+                                <td style={{ padding: '6px 12px', textAlign: 'right', fontWeight: '600' }}>{art.totalAmount.toFixed(2)}</td>
+                              </tr>
+                            ))}
+
+                            {/* Sub Category Total Row */}
+                            <tr style={{ fontWeight: 'bold', color: '#111827', borderBottom: '1px solid #111827' }}>
+                              <td style={{ padding: '6px 12px' }}></td>
+                              <td style={{ padding: '6px 12px' }}></td>
+                              <td style={{ padding: '6px 12px' }}></td>
+                              <td style={{ padding: '6px 12px', borderTop: '1px solid #9CA3AF' }}>{sub.subCategoryName} Total</td>
+                              <td style={{ padding: '6px 12px', textAlign: 'right', borderTop: '1px solid #9CA3AF' }}>{sub.totalQuantity.toFixed(2)}</td>
+                              <td style={{ padding: '6px 12px', borderTop: '1px solid #9CA3AF' }}></td>
+                              <td style={{ padding: '6px 12px', textAlign: 'right', borderTop: '1px solid #9CA3AF' }}>{sub.totalRevenue.toFixed(2)}</td>
+                            </tr>
+                          </React.Fragment>
+                        ))}
+
+                        {/* Category Total Row */}
+                        <tr style={{ fontWeight: 'bold', color: '#111827', borderBottom: '2px solid #111827', background: '#F9FAFB' }}>
+                          <td style={{ padding: '8px 12px' }}></td>
+                          <td style={{ padding: '8px 12px' }}></td>
+                          <td style={{ padding: '8px 12px' }}></td>
+                          <td style={{ padding: '8px 12px' }}>{cat.categoryName} Total</td>
+                          <td style={{ padding: '8px 12px', textAlign: 'right' }}>{cat.totalQuantity.toFixed(2)}</td>
+                          <td style={{ padding: '8px 12px' }}></td>
+                          <td style={{ padding: '8px 12px', textAlign: 'right' }}>{cat.totalRevenue.toFixed(2)}</td>
+                        </tr>
+                      </React.Fragment>
+                    ))}
+                  </tbody>
+                </table>
+
+                {/* Bottom Right Totals Summary */}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '24px' }}>
+                  <table style={{ borderCollapse: 'collapse', fontSize: '13px', width: '320px', fontFamily: 'Arial, sans-serif' }}>
+                    <tbody>
+                      <tr style={{ borderBottom: '1px solid #D1D5DB' }}>
+                        <td style={{ padding: '6px 12px', fontWeight: 'bold', color: '#4B5563' }}>Sub Total</td>
+                        <td style={{ padding: '6px 12px', textAlign: 'right', fontWeight: 'bold', color: '#111827' }}>{report.subTotal.toFixed(2)}</td>
+                      </tr>
+                       <tr style={{ borderBottom: '1px solid #111827' }}>
+                        <td style={{ padding: '6px 12px', fontWeight: 'bold', color: '#4B5563' }}>Discount</td>
+                        <td style={{ padding: '6px 12px', textAlign: 'right', fontWeight: 'bold', color: '#111827' }}>{report.discount.toFixed(2)}</td>
+                      </tr>
+                      <tr style={{ borderBottom: '4px double #111827', background: '#F3F4F6' }}>
+                        <td style={{ padding: '8px 12px', fontWeight: 'bold', fontSize: '14px', color: '#111827' }}>Grand Total</td>
+                        <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 'bold', fontSize: '14px', color: '#111827' }}>{report.grandTotal.toFixed(2)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )
+        }
 
         if (activeTab === 'daily') return (
           <div className="card" style={{ padding: 0, overflow: 'hidden', border: '1px solid var(--black-border)', boxShadow: '0 4px 20px rgba(0,0,0,0.3)' }}>

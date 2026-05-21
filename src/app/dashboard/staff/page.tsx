@@ -18,9 +18,18 @@ export default function StaffPage() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const res = await fetch('/api/staff')
-    setStaff(await res.json())
-    setLoading(false)
+    try {
+      const res = await fetch('/api/staff')
+      if (res.ok) {
+        setStaff(await res.json())
+      } else {
+        console.error('Failed to load staff:', res.statusText)
+      }
+    } catch (err) {
+      console.error('Error loading staff:', err)
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   useEffect(() => { load() }, [load])

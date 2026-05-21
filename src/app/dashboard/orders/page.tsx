@@ -17,12 +17,21 @@ export default function OrdersPage() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const params = new URLSearchParams()
-    if (tableId) params.set('tableId', tableId)
-    if (filter) params.set('status', filter)
-    const res = await fetch(`/api/orders?${params.toString()}`)
-    setOrders(await res.json())
-    setLoading(false)
+    try {
+      const params = new URLSearchParams()
+      if (tableId) params.set('tableId', tableId)
+      if (filter) params.set('status', filter)
+      const res = await fetch(`/api/orders?${params.toString()}`)
+      if (res.ok) {
+        setOrders(await res.json())
+      } else {
+        console.error('Failed to load orders:', res.statusText)
+      }
+    } catch (err) {
+      console.error('Error loading orders:', err)
+    } finally {
+      setLoading(false)
+    }
   }, [tableId, filter])
 
   useEffect(() => { load() }, [load])

@@ -26,16 +26,24 @@ export default function PaymentPage() {
   const [lastPayment, setLastPayment] = useState<{ amount: number; method: string } | null>(null)
 
   const load = useCallback(async () => {
-    const [ordRes, sessRes] = await Promise.all([
-      fetch('/api/orders?status=OPEN'),
-      fetch('/api/auth/me'),
-    ])
-    const ords = await ordRes.json()
-    setOrders(ords)
-    if (sessRes.ok) setSession(await sessRes.json())
-    if (orderId) {
-      const found = ords.find((o: Order) => o.id === orderId)
-      if (found) setSelectedOrder(found)
+    try {
+      const [ordRes, sessRes] = await Promise.all([
+        fetch('/api/orders?status=OPEN'),
+        fetch('/api/auth/me'),
+      ])
+      if (ordRes.ok) {
+        const ords = await ordRes.json()
+        setOrders(ords)
+        if (orderId) {
+          const found = ords.find((o: Order) => o.id === orderId)
+          if (found) setSelectedOrder(found)
+        }
+      } else {
+        console.error('Failed to load orders:', ordRes.statusText)
+      }
+      if (sessRes.ok) setSession(await sessRes.json())
+    } catch (err) {
+      console.error('Error loading payment page:', err)
     }
   }, [orderId])
 

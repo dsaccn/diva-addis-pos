@@ -34,21 +34,47 @@ export default function InventoryPage() {
 
   const loadItems = useCallback(async () => {
     setLoadingItems(true)
-    const res = await fetch('/api/menu-items')
-    setItems(await res.json())
-    setLoadingItems(false)
+    try {
+      const res = await fetch('/api/menu-items')
+      if (res.ok) {
+        setItems(await res.json())
+      } else {
+        console.error('Failed to load menu items:', res.statusText)
+      }
+    } catch (err) {
+      console.error('Error loading menu items:', err)
+    } finally {
+      setLoadingItems(false)
+    }
   }, [])
 
   const loadIngredients = useCallback(async () => {
     setLoadingIngs(true)
-    const res = await fetch('/api/ingredients')
-    setIngredients(await res.json())
-    setLoadingIngs(false)
+    try {
+      const res = await fetch('/api/ingredients')
+      if (res.ok) {
+        setIngredients(await res.json())
+      } else {
+        console.error('Failed to load ingredients:', res.statusText)
+      }
+    } catch (err) {
+      console.error('Error loading ingredients:', err)
+    } finally {
+      setLoadingIngs(false)
+    }
   }, [])
 
   const loadCategories = useCallback(async () => {
-    const res = await fetch('/api/categories')
-    setCategories(await res.json())
+    try {
+      const res = await fetch('/api/categories')
+      if (res.ok) {
+        setCategories(await res.json())
+      } else {
+        console.error('Failed to load categories:', res.statusText)
+      }
+    } catch (err) {
+      console.error('Error loading categories:', err)
+    }
   }, [])
 
   useEffect(() => { loadItems(); loadIngredients(); loadCategories(); }, [loadItems, loadIngredients, loadCategories])

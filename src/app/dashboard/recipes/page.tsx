@@ -26,14 +26,21 @@ export default function RecipesPage() {
   const [newIng, setNewIng] = useState({ name: '', unit: 'grams', quantity: '0', minThreshold: '0' })
 
   const loadBase = useCallback(async () => {
-    const [menuRes, ingRes] = await Promise.all([
-      fetch('/api/menu-items'),
-      fetch('/api/ingredients'),
-    ])
-    const items = await menuRes.json()
-    // Show all items (food + drink)
-    setMenuItems(items)
-    setIngredients(await ingRes.json())
+    try {
+      const [menuRes, ingRes] = await Promise.all([
+        fetch('/api/menu-items'),
+        fetch('/api/ingredients'),
+      ])
+      if (menuRes.ok && ingRes.ok) {
+        const items = await menuRes.json()
+        setMenuItems(items)
+        setIngredients(await ingRes.json())
+      } else {
+        console.error('Failed to load menu items or ingredients:', menuRes.statusText, ingRes.statusText)
+      }
+    } catch (err) {
+      console.error('Error loading base recipe data:', err)
+    }
   }, [])
 
   useEffect(() => { loadBase() }, [loadBase])
@@ -42,9 +49,20 @@ export default function RecipesPage() {
     setLoading(true)
     setError('')
     setSelected(item)
-    const res = await fetch(`/api/recipes?menuItemId=${item.id}`)
-    setRecipe(await res.json())
-    setLoading(false)
+    try {
+      const res = await fetch(`/api/recipes?menuItemId=${item.id}`)
+      if (res.ok) {
+        setRecipe(await res.json())
+      } else {
+        console.error('Failed to load recipe:', res.statusText)
+        setError('Failed to load recipe')
+      }
+    } catch (err) {
+      console.error('Error loading recipe:', err)
+      setError('Error loading recipe')
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   async function addLine() {

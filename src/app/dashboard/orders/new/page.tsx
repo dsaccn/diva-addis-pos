@@ -27,26 +27,44 @@ export default function NewOrderPage() {
   const [tempNote, setTempNote] = useState('')
 
   const loadData = useCallback(async () => {
-    const [catRes, sessRes] = await Promise.all([
-      fetch('/api/categories'),
-      fetch('/api/auth/me'),
-    ])
-    const cats = await catRes.json()
-    setCategories(cats)
-    if (cats.length > 0) setActiveCategory(cats[0].id)
-    if (sessRes.ok) setSession(await sessRes.json())
-
-    if (tableId) {
-      // Fetch the table to get its display number
-      const [tableRes, ordRes] = await Promise.all([
-        fetch('/api/tables'),
-        fetch(`/api/orders?tableId=${tableId}&status=OPEN`),
+    try {
+      const [catRes, sessRes] = await Promise.all([
+        fetch('/api/categories'),
+        fetch('/api/auth/me'),
       ])
-      const tables = await tableRes.json()
-      const found = tables.find((t: { id: string; number: string }) => t.id === tableId)
-      if (found) setTableNumber(found.number)
-      const orders = await ordRes.json()
-      if (orders.length > 0) setExistingOrder(orders[0])
+      if (catRes.ok) {
+        const cats = await catRes.json()
+        setCategories(cats)
+        if (cats.length > 0) setActiveCategory(cats[0].id)
+      } else {
+        console.error('Failed to load categories:', catRes.statusText)
+      }
+      if (sessRes.ok) {
+        setSession(await sessRes.json())
+      }
+
+      if (tableId) {
+        // Fetch the table to get its display number
+        const [tableRes, ordRes] = await Promise.all([
+          fetch('/api/tables'),
+          fetch(`/api/orders?tableId=${tableId}&status=OPEN`),
+        ])
+        if (tableRes.ok) {
+          const tables = await tableRes.json()
+          const found = tables.find((t: { id: string; number: string }) => t.id === tableId)
+          if (found) setTableNumber(found.number)
+        } else {
+          console.error('Failed to load tables:', tableRes.statusText)
+        }
+        if (ordRes.ok) {
+          const orders = await ordRes.json()
+          if (orders.length > 0) setExistingOrder(orders[0])
+        } else {
+          console.error('Failed to load orders:', ordRes.statusText)
+        }
+      }
+    } catch (err) {
+      console.error('Error loading page data:', err)
     }
   }, [tableId])
 

@@ -27,11 +27,20 @@ export default function MenuPage() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const [itemsRes, catsRes, ingsRes] = await Promise.all([fetch('/api/menu-items'), fetch('/api/categories'), fetch('/api/ingredients')])
-    setItems(await itemsRes.json())
-    setCategories(await catsRes.json())
-    setIngredients(await ingsRes.json())
-    setLoading(false)
+    try {
+      const [itemsRes, catsRes, ingsRes] = await Promise.all([
+        fetch('/api/menu-items'),
+        fetch('/api/categories'),
+        fetch('/api/ingredients')
+      ])
+      if (itemsRes.ok) setItems(await itemsRes.json())
+      if (catsRes.ok) setCategories(await catsRes.json())
+      if (ingsRes.ok) setIngredients(await ingsRes.json())
+    } catch (err) {
+      console.error('Error loading menu data:', err)
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   useEffect(() => { load() }, [load])
