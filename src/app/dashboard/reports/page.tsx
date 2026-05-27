@@ -249,15 +249,17 @@ export default function ReportsPage() {
           </h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginTop: '4px' }}>Advanced Analytics & Reporting</p>
         </div>
-        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', background: 'var(--black-card)', padding: '8px', borderRadius: '12px', border: '1px solid var(--black-border)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <input type="date" className="input" style={{ width: '140px', padding: '6px 12px' }} value={from} onChange={e => setFrom(e.target.value)} />
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', background: 'var(--black-card)', padding: '8px', borderRadius: '12px', border: '1px solid var(--black-border)', width: '100%', maxWidth: 'max-content' }} className="mobile-width-full">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '1', minWidth: '240px' }}>
+            <input type="date" className="input" style={{ flex: '1', minWidth: '110px', padding: '6px 12px' }} value={from} onChange={e => setFrom(e.target.value)} />
             <span style={{ color: 'var(--text-muted)' }}>—</span>
-            <input type="date" className="input" style={{ width: '140px', padding: '6px 12px' }} value={to} onChange={e => setTo(e.target.value)} />
+            <input type="date" className="input" style={{ flex: '1', minWidth: '110px', padding: '6px 12px' }} value={to} onChange={e => setTo(e.target.value)} />
           </div>
-          <div style={{ width: '1px', height: '24px', background: 'var(--black-border)', margin: '0 4px' }} />
-          <button className="btn btn-ghost btn-sm" onClick={load} title="Refresh"><RefreshCw size={16} /></button>
-          <button className="btn btn-gold btn-sm" onClick={printReport}><Printer size={16} /> Print</button>
+          <div style={{ width: '1px', height: '24px', background: 'var(--black-border)', margin: '0 4px' }} className="desktop-only" />
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <button className="btn btn-ghost btn-sm" onClick={load} title="Refresh"><RefreshCw size={16} /></button>
+            <button className="btn btn-gold btn-sm" onClick={printReport}><Printer size={16} /> Print</button>
+          </div>
         </div>
       </div>
 
@@ -305,7 +307,7 @@ export default function ReportsPage() {
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', overflowX: 'auto', paddingBottom: '4px', borderBottom: '1px solid var(--black-border)' }}>
+      <div className="hide-scrollbar" style={{ display: 'flex', gap: '8px', marginBottom: '24px', overflowX: 'auto', paddingBottom: '4px', borderBottom: '1px solid var(--black-border)' }}>
         {tabs.map(t => (
           <button key={t.id} className={`btn btn-sm ${activeTab === t.id ? 'btn-gold' : 'btn-ghost'}`} style={{ whiteSpace: 'nowrap', borderRadius: '8px 8px 0 0', borderBottom: activeTab === t.id ? '2px solid var(--gold)' : '2px solid transparent', padding: '10px 16px' }} onClick={() => setActiveTab(t.id)}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -318,7 +320,7 @@ export default function ReportsPage() {
 
       {/* Advanced Summary Dashboard */}
       {activeTab === 'summary' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '24px' }}>
+        <div className="reports-dashboard-grid">
           
           {/* Daily Sales Bar Chart (CSS) */}
           <div className="card" style={{ display: 'flex', flexDirection: 'column' }}>
@@ -326,24 +328,26 @@ export default function ReportsPage() {
               <TrendingUp size={18} color="var(--gold)" /> Daily Revenue Trends
             </h3>
             {data.dailySales.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-                <div style={{ position: 'relative', height: '220px', display: 'flex', alignItems: 'flex-end', gap: '6px', borderBottom: '2px solid var(--black-border)', marginBottom: '8px' }}>
-                  {data.dailySales.slice(0, 14).reverse().map((day, i) => {
-                    const maxRev = Math.max(...data.dailySales.slice(0, 14).map(d => d.revenue))
-                    const heightPct = maxRev > 0 ? Math.max((day.revenue / maxRev) * 100, 4) : 4
-                    return (
-                      <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: '100%', position: 'relative' }} title={`${new Date(day.date).toLocaleDateString()} — ${formatMoney(day.revenue)}`}>
-                        <div style={{ width: '100%', height: `${heightPct}%`, background: 'linear-gradient(to top, var(--gold-dark, #a87b20), var(--gold, #d4af37))', borderRadius: '4px 4px 0 0', transition: 'filter 0.2s', cursor: 'pointer' }} onMouseEnter={e => (e.currentTarget.style.filter = 'brightness(1.3)')} onMouseLeave={e => (e.currentTarget.style.filter = 'none')} />
+              <div className="hide-scrollbar" style={{ overflowX: 'auto', paddingBottom: '8px' }}>
+                <div style={{ minWidth: '500px', display: 'flex', flexDirection: 'column', flex: 1 }}>
+                  <div style={{ position: 'relative', height: '220px', display: 'flex', alignItems: 'flex-end', gap: '6px', borderBottom: '2px solid var(--black-border)', marginBottom: '8px' }}>
+                    {data.dailySales.slice(0, 14).reverse().map((day, i) => {
+                      const maxRev = Math.max(...data.dailySales.slice(0, 14).map(d => d.revenue))
+                      const heightPct = maxRev > 0 ? Math.max((day.revenue / maxRev) * 100, 4) : 4
+                      return (
+                        <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: '100%', position: 'relative' }} title={`${new Date(day.date).toLocaleDateString()} — ${formatMoney(day.revenue)}`}>
+                          <div style={{ width: '100%', height: `${heightPct}%`, background: 'linear-gradient(to top, var(--gold-dark, #a87b20), var(--gold, #d4af37))', borderRadius: '4px 4px 0 0', transition: 'filter 0.2s', cursor: 'pointer' }} onMouseEnter={e => (e.currentTarget.style.filter = 'brightness(1.3)')} onMouseLeave={e => (e.currentTarget.style.filter = 'none')} />
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    {data.dailySales.slice(0, 14).reverse().map((day, i) => (
+                      <div key={i} style={{ flex: 1, textAlign: 'center', fontSize: '10px', color: 'var(--text-muted)' }}>
+                        {new Date(day.date).getDate()}/{new Date(day.date).getMonth() + 1}
                       </div>
-                    )
-                  })}
-                </div>
-                <div style={{ display: 'flex', gap: '6px' }}>
-                  {data.dailySales.slice(0, 14).reverse().map((day, i) => (
-                    <div key={i} style={{ flex: 1, textAlign: 'center', fontSize: '10px', color: 'var(--text-muted)' }}>
-                      {new Date(day.date).getDate()}/{new Date(day.date).getMonth() + 1}
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               </div>
             ) : (
@@ -409,24 +413,51 @@ export default function ReportsPage() {
 
       {/* Advanced Tables Helper Component */}
       {(() => {
-        const renderTable = (columns: string[], dataRenderer: () => React.ReactNode, emptyMessage: string, isEmpty: boolean) => (
-          <div className="card" style={{ padding: 0, overflow: 'hidden', border: '1px solid var(--black-border)', boxShadow: '0 4px 20px rgba(0,0,0,0.3)' }}>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--black-border)' }}>
-                    {columns.map(h => (
-                      <th key={h} style={{ padding: '16px 20px', textAlign: 'left', fontSize: '12px', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px' }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {isEmpty ? <tr><td colSpan={columns.length} style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>{emptyMessage}</td></tr> : dataRenderer()}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        );
+        const renderResponsiveTable = <T extends any>(
+          columns: string[],
+          items: T[],
+          desktopRowRenderer: (item: T, index: number) => React.ReactNode,
+          mobileCardRenderer: (item: T, index: number) => React.ReactNode,
+          emptyMessage: string
+        ) => {
+          const isEmpty = items.length === 0
+          return (
+            <>
+              {/* Desktop Table View */}
+              <div className="card desktop-only-table" style={{ padding: 0, overflow: 'hidden', border: '1px solid var(--black-border)', boxShadow: '0 4px 20px rgba(0,0,0,0.3)', width: '100%' }}>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--black-border)' }}>
+                        {columns.map(h => (
+                          <th key={h} style={{ padding: '16px 20px', textAlign: 'left', fontSize: '12px', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {isEmpty ? (
+                        <tr><td colSpan={columns.length} style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>{emptyMessage}</td></tr>
+                      ) : (
+                        items.map((item, idx) => desktopRowRenderer(item, idx))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Mobile Card List View */}
+              <div className="mobile-only" style={{ width: '100%' }}>
+                {isEmpty ? (
+                  <div className="card" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>{emptyMessage}</div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    {items.map((item, idx) => mobileCardRenderer(item, idx))}
+                  </div>
+                )}
+              </div>
+            </>
+          )
+        }
 
         if (activeTab === 'categorized') {
           const report = data.categorizedReport
@@ -446,7 +477,8 @@ export default function ReportsPage() {
                 </button>
               </div>
 
-              <div style={{ background: '#FFFFFF', color: '#1A1A1A', borderRadius: '12px', padding: '32px', boxShadow: '0 4px 30px rgba(0,0,0,0.4)', overflowX: 'auto', border: '1px solid #E5E7EB' }}>
+              {/* Desktop Table View */}
+              <div className="desktop-only" style={{ background: '#FFFFFF', color: '#1A1A1A', borderRadius: '12px', padding: '32px', boxShadow: '0 4px 30px rgba(0,0,0,0.4)', overflowX: 'auto', border: '1px solid #E5E7EB' }}>
                 <div style={{ textAlign: 'center', marginBottom: '24px', fontFamily: '"Courier New", Courier, monospace' }}>
                   <h2 style={{ fontSize: '20px', fontWeight: 'bold', margin: '0 0 6px', color: '#1F2937', letterSpacing: '0.5px' }}>Categorized And Summarized By Article</h2>
                   <p style={{ fontSize: '12px', color: '#4B5563', margin: 0 }}>
@@ -469,7 +501,6 @@ export default function ReportsPage() {
                   <tbody>
                     {report.categories.map((cat, catIdx) => (
                       <React.Fragment key={cat.categoryName}>
-                        {/* Category Heading Row */}
                         <tr style={{ background: '#598B9C', color: '#FFFFFF' }}>
                           <td colSpan={7} style={{ padding: '8px 12px', fontWeight: 'bold', fontSize: '14px', textTransform: 'uppercase' }}>
                             {cat.categoryName}
@@ -478,7 +509,6 @@ export default function ReportsPage() {
 
                         {cat.subCategories.map((sub, subIdx) => (
                           <React.Fragment key={sub.subCategoryName}>
-                            {/* Sub Category Heading Row */}
                             <tr style={{ background: '#CED9DC', color: '#1F2937' }}>
                               <td style={{ padding: '6px 12px' }}></td>
                               <td colSpan={6} style={{ padding: '6px 12px', fontWeight: 'bold', fontSize: '13px', textTransform: 'uppercase' }}>
@@ -498,7 +528,6 @@ export default function ReportsPage() {
                               </tr>
                             ))}
 
-                            {/* Sub Category Total Row */}
                             <tr style={{ fontWeight: 'bold', color: '#111827', borderBottom: '1px solid #111827' }}>
                               <td style={{ padding: '6px 12px' }}></td>
                               <td style={{ padding: '6px 12px' }}></td>
@@ -511,7 +540,6 @@ export default function ReportsPage() {
                           </React.Fragment>
                         ))}
 
-                        {/* Category Total Row */}
                         <tr style={{ fontWeight: 'bold', color: '#111827', borderBottom: '2px solid #111827', background: '#F9FAFB' }}>
                           <td style={{ padding: '8px 12px' }}></td>
                           <td style={{ padding: '8px 12px' }}></td>
@@ -526,7 +554,6 @@ export default function ReportsPage() {
                   </tbody>
                 </table>
 
-                {/* Bottom Right Totals Summary */}
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '24px' }}>
                   <table style={{ borderCollapse: 'collapse', fontSize: '13px', width: '320px', fontFamily: 'Arial, sans-serif' }}>
                     <tbody>
@@ -534,7 +561,7 @@ export default function ReportsPage() {
                         <td style={{ padding: '6px 12px', fontWeight: 'bold', color: '#4B5563' }}>Sub Total</td>
                         <td style={{ padding: '6px 12px', textAlign: 'right', fontWeight: 'bold', color: '#111827' }}>{report.subTotal.toFixed(2)}</td>
                       </tr>
-                       <tr style={{ borderBottom: '1px solid #111827' }}>
+                      <tr style={{ borderBottom: '1px solid #111827' }}>
                         <td style={{ padding: '6px 12px', fontWeight: 'bold', color: '#4B5563' }}>Discount</td>
                         <td style={{ padding: '6px 12px', textAlign: 'right', fontWeight: 'bold', color: '#111827' }}>{report.discount.toFixed(2)}</td>
                       </tr>
@@ -546,95 +573,250 @@ export default function ReportsPage() {
                   </table>
                 </div>
               </div>
+
+              {/* Mobile Card List View */}
+              <div className="mobile-only" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {report.categories.map(cat => (
+                  <div key={cat.categoryName} className="card" style={{ background: 'var(--black-card)', border: '1px solid var(--black-border)' }}>
+                    <div style={{ fontSize: '15px', fontWeight: '700', color: 'var(--gold)', borderBottom: '1px solid var(--black-border)', paddingBottom: '8px', marginBottom: '12px', textTransform: 'uppercase' }}>
+                      {cat.categoryName}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                      {cat.subCategories.map(sub => (
+                        <div key={sub.subCategoryName} style={{ borderLeft: '2px solid var(--gold-dark)', paddingLeft: '10px' }}>
+                          <div style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)', marginBottom: '8px', textTransform: 'uppercase' }}>
+                            {sub.subCategoryName}
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {sub.articles.map(art => (
+                              <div key={art.code} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', fontSize: '13px', borderBottom: '1px dashed var(--black-border)', paddingBottom: '6px' }}>
+                                <div>
+                                  <div style={{ fontWeight: '500', color: 'var(--text-primary)' }}>{art.name}</div>
+                                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>Code: {art.code} · Qty: {art.quantity.toFixed(2)} @ {art.avgAmount.toFixed(2)}</div>
+                                </div>
+                                <div style={{ fontWeight: '600', color: 'var(--gold)' }}>{art.totalAmount.toFixed(2)}</div>
+                              </div>
+                            ))}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                              <span>{sub.subCategoryName} Total</span>
+                              <span>{sub.totalRevenue.toFixed(2)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)', borderTop: '1px solid var(--black-border)', paddingTop: '10px', marginTop: '12px' }}>
+                      <span>{cat.categoryName} Total</span>
+                      <span style={{ color: 'var(--gold)' }}>{cat.totalRevenue.toFixed(2)}</span>
+                    </div>
+                  </div>
+                ))}
+
+                <div className="card" style={{ background: 'var(--black-card)', border: '1px solid var(--gold-dark)', marginTop: '12px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                      <span>Sub Total</span>
+                      <span>{report.subTotal.toFixed(2)}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                      <span>Discount</span>
+                      <span>{report.discount.toFixed(2)}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '15px', fontWeight: '700', color: 'var(--text-primary)', borderTop: '1px solid var(--black-border)', paddingTop: '10px' }}>
+                      <span>Grand Total</span>
+                      <span style={{ color: 'var(--gold)' }}>{report.grandTotal.toFixed(2)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           )
         }
 
-        if (activeTab === 'daily') return (
-          <div className="card" style={{ padding: 0, overflow: 'hidden', border: '1px solid var(--black-border)', boxShadow: '0 4px 20px rgba(0,0,0,0.3)' }}>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--black-border)' }}>
-                    {['Date', 'Total Orders', 'Revenue (ETB)', 'Avg Order Value', ''].map(h => (
-                      <th key={h} style={{ padding: '16px 20px', textAlign: 'left', fontSize: '12px', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px' }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.dailySales.length === 0 ? (
-                    <tr><td colSpan={5} style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>No daily sales data available.</td></tr>
-                  ) : data.dailySales.map((day) => (
-                    <React.Fragment key={day.date}>
-                      <tr
-                        className="table-row-hover"
-                        style={{ borderBottom: selectedDay === day.date ? 'none' : '1px solid var(--black-border)', cursor: 'pointer', background: selectedDay === day.date ? 'rgba(212,175,55,0.06)' : 'transparent' }}
-                        onClick={() => setSelectedDay(selectedDay === day.date ? null : day.date)}
-                      >
-                        <td style={{ padding: '16px 20px', fontWeight: '600', color: 'var(--text-primary)' }}>
-                          <span style={{ marginRight: '8px', fontSize: '12px', color: 'var(--gold)' }}>{selectedDay === day.date ? '▼' : '▶'}</span>
-                          {new Date(day.date).toLocaleDateString('en-ET', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                        </td>
-                        <td style={{ padding: '16px 20px' }}><span className="badge badge-outline">{day.orders}</span></td>
-                        <td style={{ padding: '16px 20px', color: 'var(--gold)', fontWeight: '700', fontSize: '15px' }}>{formatMoney(day.revenue)}</td>
-                        <td style={{ padding: '16px 20px', color: 'var(--text-secondary)' }}>{day.orders > 0 ? formatMoney(day.revenue / day.orders) : '-'}</td>
-                        <td style={{ padding: '16px 20px', fontSize: '12px', color: 'var(--text-muted)' }}>Click to expand</td>
+        if (activeTab === 'daily') {
+          return (
+            <>
+              {/* Desktop Table View */}
+              <div className="card desktop-only-table" style={{ padding: 0, overflow: 'hidden', border: '1px solid var(--black-border)', boxShadow: '0 4px 20px rgba(0,0,0,0.3)', width: '100%' }}>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--black-border)' }}>
+                        {['Date', 'Total Orders', 'Revenue (ETB)', 'Avg Order Value', ''].map(h => (
+                          <th key={h} style={{ padding: '16px 20px', textAlign: 'left', fontSize: '12px', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px' }}>{h}</th>
+                        ))}
                       </tr>
-                      {selectedDay === day.date && (
-                        <tr key={day.date + '-detail'}>
-                          <td colSpan={5} style={{ padding: '0', borderBottom: '1px solid var(--black-border)', background: 'rgba(212,175,55,0.03)' }}>
-                            <div style={{ padding: '20px 32px 24px' }}>
-                              <div style={{ fontSize: '13px', color: 'var(--gold)', fontWeight: '600', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                                📋 Breakdown for {new Date(day.date).toLocaleDateString('en-ET', { weekday: 'long', month: 'long', day: 'numeric' })}
+                    </thead>
+                    <tbody>
+                      {data.dailySales.length === 0 ? (
+                        <tr><td colSpan={5} style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>No daily sales data available.</td></tr>
+                      ) : data.dailySales.map((day) => (
+                        <React.Fragment key={day.date}>
+                          <tr
+                            className="table-row-hover"
+                            style={{ borderBottom: selectedDay === day.date ? 'none' : '1px solid var(--black-border)', cursor: 'pointer', background: selectedDay === day.date ? 'rgba(212,175,55,0.06)' : 'transparent' }}
+                            onClick={() => setSelectedDay(selectedDay === day.date ? null : day.date)}
+                          >
+                            <td style={{ padding: '16px 20px', fontWeight: '600', color: 'var(--text-primary)' }}>
+                              <span style={{ marginRight: '8px', fontSize: '12px', color: 'var(--gold)' }}>{selectedDay === day.date ? '▼' : '▶'}</span>
+                              {new Date(day.date).toLocaleDateString('en-ET', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                            </td>
+                            <td style={{ padding: '16px 20px' }}><span className="badge badge-outline">{day.orders}</span></td>
+                            <td style={{ padding: '16px 20px', color: 'var(--gold)', fontWeight: '700', fontSize: '15px' }}>{formatMoney(day.revenue)}</td>
+                            <td style={{ padding: '16px 20px', color: 'var(--text-secondary)' }}>{day.orders > 0 ? formatMoney(day.revenue / day.orders) : '-'}</td>
+                            <td style={{ padding: '16px 20px', fontSize: '12px', color: 'var(--text-muted)' }}>Click to expand</td>
+                          </tr>
+                          {selectedDay === day.date && (
+                            <tr key={day.date + '-detail'}>
+                              <td colSpan={5} style={{ padding: '0', borderBottom: '1px solid var(--black-border)', background: 'rgba(212,175,55,0.03)' }}>
+                                <div style={{ padding: '20px 32px 24px' }}>
+                                  <div style={{ fontSize: '13px', color: 'var(--gold)', fontWeight: '600', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                    📋 Breakdown for {new Date(day.date).toLocaleDateString('en-ET', { weekday: 'long', month: 'long', day: 'numeric' })}
+                                  </div>
+                                  {day.categories.length === 0 ? (
+                                    <div style={{ color: 'var(--text-muted)', fontSize: '13px' }}>No item details available.</div>
+                                  ) : day.categories.map(cat => {
+                                    const catTotalQty = cat.items.reduce((s, i) => s + i.quantity, 0)
+                                    const catTotalRev = cat.items.reduce((s, i) => s + i.revenue, 0)
+                                    return (
+                                      <div key={cat.categoryName} style={{ marginBottom: '20px' }}>
+                                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px', paddingBottom: '6px', borderBottom: '1px solid var(--black-border)' }}>
+                                          {cat.categoryName}
+                                        </div>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: '0' }}>
+                                          <div style={{ fontSize: '11px', color: 'var(--text-muted)', padding: '4px 8px', fontWeight: '600' }}>ITEM</div>
+                                          <div style={{ fontSize: '11px', color: 'var(--text-muted)', padding: '4px 16px', fontWeight: '600', textAlign: 'center' }}>QTY</div>
+                                          <div style={{ fontSize: '11px', color: 'var(--text-muted)', padding: '4px 8px', fontWeight: '600', textAlign: 'right' }}>REVENUE</div>
+                                          {cat.items.map(item => (
+                                            <React.Fragment key={item.name}>
+                                              <div style={{ padding: '6px 8px', fontSize: '14px', color: 'var(--text-primary)', borderTop: '1px solid rgba(255,255,255,0.03)' }}>{item.name}</div>
+                                              <div style={{ padding: '6px 16px', fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)', textAlign: 'center', borderTop: '1px solid rgba(255,255,255,0.03)' }}>{item.quantity}</div>
+                                              <div style={{ padding: '6px 8px', fontSize: '14px', color: 'var(--gold)', fontWeight: '600', textAlign: 'right', borderTop: '1px solid rgba(255,255,255,0.03)' }}>{formatMoney(item.revenue)}</div>
+                                            </React.Fragment>
+                                          ))}
+                                          <div style={{ padding: '8px 8px 4px', fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)', borderTop: '1px solid var(--black-border)' }}>Subtotal</div>
+                                          <div style={{ padding: '8px 16px 4px', fontSize: '13px', fontWeight: '700', color: 'white', textAlign: 'center', borderTop: '1px solid var(--black-border)' }}>{catTotalQty}</div>
+                                          <div style={{ padding: '8px 8px 4px', fontSize: '13px', fontWeight: '700', color: 'white', textAlign: 'right', borderTop: '1px solid var(--black-border)' }}>{formatMoney(catTotalRev)}</div>
+                                        </div>
+                                      </div>
+                                    )
+                                  })}
+                                  <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--black-border)', display: 'flex', justifyContent: 'flex-end', gap: '32px' }}>
+                                    <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Total Orders: <b style={{ color: 'var(--text-primary)' }}>{day.orders}</b></span>
+                                    <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Total Revenue: <b style={{ color: 'var(--gold)', fontSize: '15px' }}>{formatMoney(day.revenue)}</b></span>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Mobile Card List View */}
+              <div className="mobile-only" style={{ width: '100%' }}>
+                {data.dailySales.length === 0 ? (
+                  <div className="card" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No daily sales data available.</div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    {data.dailySales.map((day) => {
+                      const isExpanded = selectedDay === day.date
+                      return (
+                        <div
+                          key={day.date}
+                          className="card"
+                          style={{
+                            background: 'var(--black-card)',
+                            border: isExpanded ? '1px solid var(--gold)' : '1px solid var(--black-border)',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '12px'
+                          }}
+                          onClick={() => setSelectedDay(isExpanded ? null : day.date)}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontWeight: '700', fontSize: '14px', color: isExpanded ? 'var(--gold)' : 'var(--text-primary)' }}>
+                              {new Date(day.date).toLocaleDateString('en-ET', { weekday: 'short', month: 'short', day: 'numeric' })}
+                            </span>
+                            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{isExpanded ? '▼ Collapse' : '▶ Expand'}</span>
+                          </div>
+                          
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                            <div>
+                              <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', marginRight: '6px' }}>Orders:</span>
+                              <span className="badge badge-outline" style={{ fontSize: '11px', padding: '2px 8px' }}>{day.orders}</span>
+                            </div>
+                            <div style={{ color: 'var(--gold)', fontWeight: '700', fontSize: '16px' }}>{formatMoney(day.revenue)}</div>
+                          </div>
+                          
+                          {day.orders > 0 && (
+                            <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                              Avg Order Value: <b>{formatMoney(day.revenue / day.orders)}</b>
+                            </div>
+                          )}
+
+                          {isExpanded && (
+                            <div
+                              style={{
+                                borderTop: '1px solid var(--black-border)',
+                                paddingTop: '12px',
+                                marginTop: '4px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '12px'
+                              }}
+                              onClick={e => e.stopPropagation()}
+                            >
+                              <div style={{ fontSize: '12px', color: 'var(--gold)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                Item Breakdown
                               </div>
                               {day.categories.length === 0 ? (
-                                <div style={{ color: 'var(--text-muted)', fontSize: '13px' }}>No item details available.</div>
-                              ) : day.categories.map(cat => {
-                                const catTotalQty = cat.items.reduce((s, i) => s + i.quantity, 0)
-                                const catTotalRev = cat.items.reduce((s, i) => s + i.revenue, 0)
-                                return (
-                                  <div key={cat.categoryName} style={{ marginBottom: '20px' }}>
-                                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px', paddingBottom: '6px', borderBottom: '1px solid var(--black-border)' }}>
-                                      {cat.categoryName}
+                                <div style={{ color: 'var(--text-muted)', fontSize: '12px' }}>No item details available.</div>
+                              ) : (
+                                day.categories.map(cat => {
+                                  const catTotalQty = cat.items.reduce((s, i) => s + i.quantity, 0)
+                                  const catTotalRev = cat.items.reduce((s, i) => s + i.revenue, 0)
+                                  return (
+                                    <div key={cat.categoryName} style={{ background: 'var(--black-hover)', borderRadius: '8px', padding: '10px', border: '1px solid var(--black-border)' }}>
+                                      <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', borderBottom: '1px solid var(--black-border)', paddingBottom: '4px', marginBottom: '8px' }}>
+                                        {cat.categoryName}
+                                      </div>
+                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                        {cat.items.map(item => (
+                                          <div key={item.name} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                                            <span style={{ color: 'var(--text-primary)' }}>{item.name} <span style={{ color: 'var(--text-muted)', fontSize: '10px' }}>×{item.quantity}</span></span>
+                                            <span style={{ color: 'var(--gold)', fontWeight: '500' }}>{formatMoney(item.revenue)}</span>
+                                          </div>
+                                        ))}
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: '700', color: 'var(--text-primary)', borderTop: '1px dashed var(--black-border)', paddingTop: '4px', marginTop: '4px' }}>
+                                          <span>Total ({catTotalQty})</span>
+                                          <span>{formatMoney(catTotalRev)}</span>
+                                        </div>
+                                      </div>
                                     </div>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: '0' }}>
-                                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', padding: '4px 8px', fontWeight: '600' }}>ITEM</div>
-                                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', padding: '4px 16px', fontWeight: '600', textAlign: 'center' }}>QTY</div>
-                                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', padding: '4px 8px', fontWeight: '600', textAlign: 'right' }}>REVENUE</div>
-                                      {cat.items.map(item => (
-                                        <React.Fragment key={item.name}>
-                                          <div style={{ padding: '6px 8px', fontSize: '14px', color: 'var(--text-primary)', borderTop: '1px solid rgba(255,255,255,0.03)' }}>{item.name}</div>
-                                          <div style={{ padding: '6px 16px', fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)', textAlign: 'center', borderTop: '1px solid rgba(255,255,255,0.03)' }}>{item.quantity}</div>
-                                          <div style={{ padding: '6px 8px', fontSize: '14px', color: 'var(--gold)', fontWeight: '600', textAlign: 'right', borderTop: '1px solid rgba(255,255,255,0.03)' }}>{formatMoney(item.revenue)}</div>
-                                        </React.Fragment>
-                                      ))}
-                                      {/* Category subtotal */}
-                                      <div style={{ padding: '8px 8px 4px', fontSize: '13px', fontWeight: '700', color: 'var(--text-secondary)', borderTop: '1px solid var(--black-border)' }}>Subtotal</div>
-                                      <div style={{ padding: '8px 16px 4px', fontSize: '13px', fontWeight: '700', color: 'white', textAlign: 'center', borderTop: '1px solid var(--black-border)' }}>{catTotalQty}</div>
-                                      <div style={{ padding: '8px 8px 4px', fontSize: '13px', fontWeight: '700', color: 'white', textAlign: 'right', borderTop: '1px solid var(--black-border)' }}>{formatMoney(catTotalRev)}</div>
-                                    </div>
-                                  </div>
-                                )
-                              })}
-                              <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--black-border)', display: 'flex', justifyContent: 'flex-end', gap: '32px' }}>
-                                <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Total Orders: <b style={{ color: 'var(--text-primary)' }}>{day.orders}</b></span>
-                                <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Total Revenue: <b style={{ color: 'var(--gold)', fontSize: '15px' }}>{formatMoney(day.revenue)}</b></span>
-                              </div>
+                                  )
+                                })
+                              )}
                             </div>
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            </>
+          )
+        }
 
-        if (activeTab === 'history') return renderTable(
+        if (activeTab === 'history') return renderResponsiveTable(
           ['Date & Time', 'Table', 'Served By', 'Items Ordered', 'Method', 'Total Paid'],
-          () => data.transactions.map((tx) => (
+          data.transactions,
+          (tx) => (
             <tr key={tx.id} className="table-row-hover" style={{ borderBottom: '1px solid var(--black-border)' }}>
               <td style={{ padding: '16px 20px', fontSize: '13px', color: 'var(--text-secondary)' }}>{new Date(tx.date).toLocaleString('en-ET', { dateStyle: 'medium', timeStyle: 'short' })}</td>
               <td style={{ padding: '16px 20px', fontWeight: '700' }}>Table {tx.table}</td>
@@ -648,13 +830,34 @@ export default function ReportsPage() {
               <td style={{ padding: '16px 20px' }}><span className={`badge ${tx.method === 'Cash' ? 'badge-success' : 'badge-occupied'}`}>{tx.method}</span></td>
               <td style={{ padding: '16px 20px', color: 'var(--gold)', fontWeight: '700', fontSize: '15px' }}>{formatMoney(tx.amount)}</td>
             </tr>
-          )),
-          'No transactions found.', data.transactions.length === 0
+          ),
+          (tx) => (
+            <div key={tx.id} className="card" style={{ background: 'var(--black-card)', border: '1px solid var(--black-border)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontWeight: '700', fontSize: '14px' }}>Table {tx.table}</span>
+                <span className={`badge ${tx.method === 'Cash' ? 'badge-success' : 'badge-occupied'}`} style={{ fontSize: '10px' }}>{tx.method}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                  {new Date(tx.date).toLocaleString('en-ET', { dateStyle: 'medium', timeStyle: 'short' })}
+                </div>
+                <div style={{ color: 'var(--gold)', fontWeight: '700', fontSize: '15px' }}>{formatMoney(tx.amount)}</div>
+              </div>
+              <div style={{ fontSize: '13px', borderTop: '1px solid var(--black-border)', paddingTop: '8px' }}>
+                <div style={{ color: 'var(--text-secondary)', fontWeight: '600', marginBottom: '4px' }}>Waiter: {tx.waiter} <span style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 'normal' }}>(Cashier: {tx.cashier})</span></div>
+                <div style={{ color: 'var(--text-primary)', marginTop: '6px' }}>
+                  {tx.items.split(', ').map((it, idx) => <div key={idx} style={{ fontSize: '12px', marginBottom: '2px' }}>• {it}</div>)}
+                </div>
+              </div>
+            </div>
+          ),
+          'No transactions found.'
         )
 
-        if (activeTab === 'best-sellers') return renderTable(
+        if (activeTab === 'best-sellers') return renderResponsiveTable(
           ['Rank', 'Item Name', 'Category', 'Units Sold', 'Revenue Generated'],
-          () => data.bestSelling.map((item, i) => (
+          data.bestSelling,
+          (item, i) => (
             <tr key={i} className="table-row-hover" style={{ borderBottom: '1px solid var(--black-border)' }}>
               <td style={{ padding: '16px 20px' }}>
                 <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: i < 3 ? 'var(--gold)' : 'var(--black-hover)', color: i < 3 ? 'var(--black)' : 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', fontSize: '12px' }}>
@@ -666,13 +869,29 @@ export default function ReportsPage() {
               <td style={{ padding: '16px 20px', fontWeight: '700', color: 'var(--text-primary)' }}>{item.quantity}</td>
               <td style={{ padding: '16px 20px', color: 'var(--gold)', fontWeight: '700' }}>{formatMoney(item.revenue)}</td>
             </tr>
-          )),
-          'No items sold yet.', data.bestSelling.length === 0
+          ),
+          (item, i) => (
+            <div key={i} className="card" style={{ background: 'var(--black-card)', border: '1px solid var(--black-border)', display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: i < 3 ? 'var(--gold)' : 'var(--black-hover)', color: i < 3 ? 'var(--black)' : 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', fontSize: '13px', flexShrink: 0 }}>
+                {i + 1}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: '600', fontSize: '14px' }}>{item.name}</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>{item.category}</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ color: 'var(--gold)', fontWeight: '700', fontSize: '14px' }}>{formatMoney(item.revenue)}</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>{item.quantity} sold</div>
+              </div>
+            </div>
+          ),
+          'No items sold yet.'
         )
 
-        if (activeTab === 'staff') return renderTable(
+        if (activeTab === 'staff') return renderResponsiveTable(
           ['Staff Member', 'Orders Handled', 'Total Revenue'],
-          () => data.staffPerformance.sort((a, b) => b.revenue - a.revenue).map((s, i) => (
+          [...data.staffPerformance].sort((a, b) => b.revenue - a.revenue),
+          (s, i) => (
             <tr key={i} className="table-row-hover" style={{ borderBottom: '1px solid var(--black-border)' }}>
               <td style={{ padding: '16px 20px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(212,175,55,0.2)', color: 'var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700' }}>
@@ -683,13 +902,30 @@ export default function ReportsPage() {
               <td style={{ padding: '16px 20px' }}><span className="badge badge-outline">{s.orders}</span></td>
               <td style={{ padding: '16px 20px', color: 'var(--gold)', fontWeight: '700', fontSize: '15px' }}>{formatMoney(s.revenue)}</td>
             </tr>
-          )),
-          'No staff performance data.', data.staffPerformance.length === 0
+          ),
+          (s, i) => (
+            <div key={i} className="card" style={{ background: 'var(--black-card)', border: '1px solid var(--black-border)', display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'rgba(212,175,55,0.15)', color: 'var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700', fontSize: '15px', flexShrink: 0, border: '1px solid var(--gold-dark)' }}>
+                {s.name.charAt(0)}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: '600', fontSize: '14px' }}>{s.name}</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                  Orders: <span className="badge badge-outline" style={{ padding: '1px 6px', fontSize: '10px' }}>{s.orders}</span>
+                </div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ color: 'var(--gold)', fontWeight: '700', fontSize: '14px' }}>{formatMoney(s.revenue)}</div>
+              </div>
+            </div>
+          ),
+          'No staff performance data.'
         )
 
-        if (activeTab === 'cancellations') return renderTable(
+        if (activeTab === 'cancellations') return renderResponsiveTable(
           ['Item Cancelled', 'Order Info', 'Reason', 'Authorized By', 'Date & Time'],
-          () => data.cancellations.map(c => (
+          data.cancellations,
+          (c) => (
             <tr key={c.id} className="table-row-hover" style={{ borderBottom: '1px solid var(--black-border)' }}>
               <td style={{ padding: '16px 20px', fontWeight: '600', color: 'var(--danger-light)' }}>{c.orderItem.quantity}x {c.orderItem.menuItem.name}</td>
               <td style={{ padding: '16px 20px', fontSize: '13px' }}>
@@ -700,13 +936,29 @@ export default function ReportsPage() {
               <td style={{ padding: '16px 20px' }}><span className="badge badge-waiting">{c.manager.fullName}</span></td>
               <td style={{ padding: '16px 20px', fontSize: '13px', color: 'var(--text-secondary)' }}>{new Date(c.createdAt).toLocaleString('en-ET', { dateStyle: 'medium', timeStyle: 'short' })}</td>
             </tr>
-          )),
-          'No cancellations recorded.', data.cancellations.length === 0
+          ),
+          (c) => (
+            <div key={c.id} className="card" style={{ background: 'var(--black-card)', border: '1px solid var(--black-border)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div style={{ fontWeight: '600', color: 'var(--danger-light)', fontSize: '14px' }}>{c.orderItem.quantity}x {c.orderItem.menuItem.name}</div>
+                <span className="badge badge-waiting" style={{ fontSize: '9px', padding: '2px 6px' }}>{c.manager.fullName}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                <span>Table {c.orderItem.order.table.number} · Waiter: {c.orderItem.order.waiter.fullName}</span>
+                <span style={{ color: 'var(--text-muted)' }}>{new Date(c.createdAt).toLocaleDateString('en-ET', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+              </div>
+              <div style={{ background: 'rgba(230,57,70,0.05)', borderLeft: '3px solid var(--danger-light)', padding: '8px 12px', borderRadius: '4px', fontStyle: 'italic', fontSize: '12px', color: 'var(--text-primary)', marginTop: '4px' }}>
+                "{c.reason}"
+              </div>
+            </div>
+          ),
+          'No cancellations recorded.'
         )
 
-        if (activeTab === 'inventory') return renderTable(
+        if (activeTab === 'inventory') return renderResponsiveTable(
           ['Item Name', 'Current Stock', 'Alert Threshold', 'Status'],
-          () => data.lowStock.map(item => (
+          data.lowStock,
+          (item) => (
             <tr key={item.id} style={{ borderBottom: '1px solid var(--black-border)', background: 'rgba(230,57,70,0.03)' }}>
               <td style={{ padding: '16px 20px', fontWeight: '600' }}>{item.name}</td>
               <td style={{ padding: '16px 20px', color: 'var(--danger-light)', fontWeight: '700', fontSize: '16px' }}>{item.stockQuantity}</td>
@@ -717,8 +969,22 @@ export default function ReportsPage() {
                 </span>
               </td>
             </tr>
-          )),
-          '✅ All items have sufficient stock.', data.lowStock.length === 0
+          ),
+          (item) => (
+            <div key={item.id} className="card" style={{ background: 'rgba(230,57,70,0.02)', border: '1px solid rgba(230,57,70,0.2)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontWeight: '600', fontSize: '14px' }}>{item.name}</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '10px', color: 'var(--danger-light)', background: 'rgba(230,57,70,0.1)', padding: '3px 8px', borderRadius: '12px', fontWeight: '700' }}>
+                  <AlertTriangle size={10}/> LOW STOCK
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: 'var(--text-secondary)', borderTop: '1px solid rgba(230,57,70,0.05)', paddingTop: '8px' }}>
+                <span>Current Stock: <b style={{ color: 'var(--danger-light)', fontSize: '14px' }}>{item.stockQuantity}</b></span>
+                <span>Alert Threshold: <b>{item.lowStockThreshold}</b></span>
+              </div>
+            </div>
+          ),
+          '✅ All items have sufficient stock.'
         )
 
         return null;

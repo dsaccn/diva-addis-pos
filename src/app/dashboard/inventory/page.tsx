@@ -255,7 +255,9 @@ export default function InventoryPage() {
               />
             </div>
           </div>
-          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+
+          {/* Desktop Table View */}
+          <div className="card desktop-only-table" style={{ padding: 0, overflow: 'hidden', width: '100%' }}>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
@@ -267,9 +269,9 @@ export default function InventoryPage() {
                 </thead>
                 <tbody>
                   {loadingItems ? (
-                    <tr><td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>Loading...</td></tr>
+                    <tr><td colSpan={10} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>Loading...</td></tr>
                   ) : filtered.length === 0 ? (
-                    <tr><td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No items found.</td></tr>
+                    <tr><td colSpan={10} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No items found.</td></tr>
                   ) : filtered.map(item => {
                     const isDrink = item.category?.type === 'DRINK'
                     const isLow = isDrink ? item.barQuantity <= item.lowStockThreshold : item.stockQuantity <= item.lowStockThreshold
@@ -296,7 +298,6 @@ export default function InventoryPage() {
                             <span style={{ fontWeight: '700', fontSize: '16px', color: isLow ? 'var(--danger-light)' : 'var(--success-light)' }}>{item.barQuantity}</span>
                           ) : <span style={{ color: 'var(--text-muted)' }}>-</span>}
                         </td>
-                        {/* Cost Price */}
                         <td style={{ padding: '12px 16px' }}>
                           {isDrink ? (
                             <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
@@ -304,11 +305,9 @@ export default function InventoryPage() {
                             </span>
                           ) : <span style={{ color: 'var(--text-muted)' }}>-</span>}
                         </td>
-                        {/* Sell Price */}
                         <td style={{ padding: '12px 16px', fontSize: '14px', color: 'var(--text-primary)' }}>
                           {item.price.toFixed(2)} ETB
                         </td>
-                        {/* Margin */}
                         <td style={{ padding: '12px 16px' }}>
                           {isDrink && item.costPrice > 0 ? (() => {
                             const margin = item.price - item.costPrice
@@ -341,6 +340,104 @@ export default function InventoryPage() {
               </table>
             </div>
           </div>
+
+          {/* Mobile View Cards */}
+          <div className="mobile-only" style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%' }}>
+            {loadingItems ? (
+              <div className="card" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>Loading...</div>
+            ) : filtered.length === 0 ? (
+              <div className="card" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No items found.</div>
+            ) : filtered.map(item => {
+              const isDrink = item.category?.type === 'DRINK'
+              const isLow = isDrink ? item.barQuantity <= item.lowStockThreshold : item.stockQuantity <= item.lowStockThreshold
+              return (
+                <div
+                  key={item.id}
+                  className="card"
+                  style={{
+                    background: 'var(--black-card)',
+                    border: isLow ? '1px solid var(--danger-light)' : '1px solid var(--black-border)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div>
+                      <div style={{ fontWeight: '700', fontSize: '15px', color: 'var(--text-primary)' }}>{item.name}</div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                        {isDrink ? '🍹' : '🍽'} {item.category?.name}
+                      </div>
+                    </div>
+                    {isLow ? (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: 'var(--danger-light)', background: 'rgba(230,57,70,0.1)', padding: '3px 8px', borderRadius: '8px', fontWeight: '700' }}>
+                        <AlertTriangle size={10} /> LOW STOCK
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: '11px', color: 'var(--success-light)', background: 'rgba(82,183,136,0.1)', padding: '3px 8px', borderRadius: '8px', fontWeight: '600' }}>OK</span>
+                    )}
+                  </div>
+
+                  {item.parentItemId && (
+                    <div style={{ fontSize: '11px', color: 'var(--gold)', background: 'rgba(201,168,76,0.05)', padding: '6px 10px', borderRadius: '6px', border: '1px dashed rgba(201,168,76,0.2)' }}>
+                      → linked to {items.find(i => i.id === item.parentItemId)?.name} ×{item.unitMultiplier}
+                    </div>
+                  )}
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '13px', background: 'var(--black-hover)', padding: '10px', borderRadius: '8px', border: '1px solid var(--black-border)' }}>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', display: 'block' }}>Store Qty</span>
+                      {item.parentItemId ? (
+                        <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>linked</span>
+                      ) : (
+                        <span style={{ fontWeight: '700', fontSize: '15px', color: 'var(--text-primary)' }}>{item.stockQuantity}</span>
+                      )}
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', display: 'block' }}>Bar Qty</span>
+                      {isDrink ? (
+                        <span style={{ fontWeight: '700', fontSize: '15px', color: isLow ? 'var(--danger-light)' : 'var(--success-light)' }}>{item.barQuantity}</span>
+                      ) : <span style={{ color: 'var(--text-muted)' }}>-</span>}
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', display: 'block' }}>Cost Price</span>
+                      {isDrink && item.costPrice > 0 ? (
+                        <span style={{ fontWeight: '600', color: 'var(--text-secondary)' }}>{item.costPrice.toFixed(2)} ETB</span>
+                      ) : <span style={{ color: 'var(--text-muted)' }}>-</span>}
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', display: 'block' }}>Sell Price</span>
+                      <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{item.price.toFixed(2)} ETB</span>
+                    </div>
+                    <div style={{ gridColumn: 'span 2' }}>
+                      <span style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>Profit Margin</span>
+                      {isDrink && item.costPrice > 0 ? (() => {
+                        const margin = item.price - item.costPrice
+                        const pct = ((margin / item.price) * 100).toFixed(0)
+                        return (
+                          <span style={{ fontWeight: '700', color: margin >= 0 ? 'var(--success-light)' : 'var(--danger-light)' }}>
+                            {margin >= 0 ? '+' : ''}{margin.toFixed(2)} ETB ({pct}%)
+                          </span>
+                        )
+                      })() : <span style={{ color: 'var(--text-muted)' }}>-</span>}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                    {isDrink && (
+                      <button className="btn btn-gold btn-sm" style={{ flex: 1, padding: '10px 0' }} onClick={() => { setTransferTarget(item); setTransferQty('') }}>
+                        Transfer
+                      </button>
+                    )}
+                    <button className="btn btn-outline btn-sm" style={{ flex: 1, padding: '10px 0' }} onClick={() => { setAdjustTarget(item); setAdjustQty(''); setAdjustCostPrice(item.costPrice > 0 ? String(item.costPrice) : '') }}>
+                      Update Stock
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
         </>
       )}
 
@@ -356,7 +453,9 @@ export default function InventoryPage() {
               </div>
             </div>
           )}
-          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+
+          {/* Desktop Table View */}
+          <div className="card desktop-only-table" style={{ padding: 0, overflow: 'hidden', width: '100%' }}>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
@@ -373,7 +472,7 @@ export default function InventoryPage() {
                     <tr><td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
                       No ingredients yet. Click <strong>Add Ingredient</strong> to start.
                     </td></tr>
-                  ) : ingredients.map(ing => {
+                  ) : filteredIngredients.map(ing => {
                     const isLow = ing.quantity <= ing.minThreshold
                     return (
                       <tr key={ing.id} style={{ borderTop: '1px solid var(--black-border)', background: isLow ? 'rgba(230,57,70,0.03)' : 'transparent' }}>
@@ -409,6 +508,68 @@ export default function InventoryPage() {
                 </tbody>
               </table>
             </div>
+          </div>
+
+          {/* Mobile View Cards */}
+          <div className="mobile-only" style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%' }}>
+            {loadingIngs ? (
+              <div className="card" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>Loading...</div>
+            ) : ingredients.length === 0 ? (
+              <div className="card" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                No ingredients yet. Click <strong>Add Ingredient</strong> to start.
+              </div>
+            ) : filteredIngredients.map(ing => {
+              const isLow = ing.quantity <= ing.minThreshold
+              return (
+                <div
+                  key={ing.id}
+                  className="card"
+                  style={{
+                    background: 'var(--black-card)',
+                    border: isLow ? '1px solid var(--danger-light)' : '1px solid var(--black-border)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div>
+                      <div style={{ fontWeight: '700', fontSize: '15px', color: 'var(--text-primary)' }}>{ing.name}</div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>Unit: {ing.unit}</div>
+                    </div>
+                    {isLow ? (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: 'var(--danger-light)', background: 'rgba(230,57,70,0.1)', padding: '3px 8px', borderRadius: '8px', fontWeight: '700' }}>
+                        <AlertTriangle size={10} /> LOW
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: '11px', color: 'var(--success-light)', background: 'rgba(82,183,136,0.1)', padding: '3px 8px', borderRadius: '8px', fontWeight: '600' }}>OK</span>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '13px', background: 'var(--black-hover)', padding: '10px', borderRadius: '8px', border: '1px solid var(--black-border)' }}>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', display: 'block' }}>In Stock</span>
+                      <span style={{ fontWeight: '700', fontSize: '15px', color: isLow ? 'var(--danger-light)' : 'var(--success-light)' }}>
+                        {ing.quantity}
+                      </span>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', display: 'block' }}>Min Threshold</span>
+                      <span style={{ fontWeight: '600', color: 'var(--text-secondary)' }}>{ing.minThreshold}</span>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                    <button className="btn btn-outline btn-sm" style={{ flex: 1, padding: '10px 0', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px' }} onClick={() => openEditIng(ing)}>
+                      <Pencil size={14} /> Edit
+                    </button>
+                    <button className="btn btn-ghost btn-sm" style={{ flex: 1, padding: '10px 0', color: 'var(--danger-light)', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px' }} onClick={() => deleteIngredient(ing.id)}>
+                      <Trash2 size={14} /> Delete
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </>
       )}

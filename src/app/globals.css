@@ -403,3 +403,57 @@ html, body {
     font-size: 12px;
   }
 }
+
+/* --- Mobile Responsiveness Helpers --- */
+.desktop-only {
+  display: block;
+}
+.desktop-only-table {
+  display: table;
+}
+.mobile-only {
+  display: none !important;
+}
+.mobile-only-flex {
+  display: none !important;
+}
+
+/* Reports Dashboard Layout Grid */
+.reports-dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr 350px;
+  gap: 24px;
+}
+
+/* Hide scrollbar utility for fluid horizontal tabs */
+.hide-scrollbar {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none;  /* IE and Edge */
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome, Safari and Opera */
+}
+
+@media (max-width: 1024px) {
+  .reports-dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .desktop-only, .desktop-only-table {
+    display: none !important;
+  }
+  .mobile-only {
+    display: block !important;
+  }
+  .mobile-only-flex {
+    display: flex !important;
+  }
+  
+  /* Prevent iOS Safari input text auto-zooming on focus by forcing 16px font-size */
+  .input, select.input, input[type="date"].input {
+    font-size: 16px !important;
+  }
+}
+
