@@ -1,17 +1,14 @@
 import { getSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
-import Sidebar from '@/components/Sidebar'
+import DashboardLayoutClient from '@/components/DashboardLayoutClient'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession()
   if (!session) redirect('/login')
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
-      <Sidebar user={session} />
-      <main className="main-content" style={{ flex: 1 }}>
-        {children}
-      </main>
-    </div>
+    <DashboardLayoutClient session={session}>
+      {children}
+    </DashboardLayoutClient>
   )
 }

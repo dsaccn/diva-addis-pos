@@ -119,10 +119,7 @@ export default function PaymentPage() {
           {lastPayment?.amount.toFixed(2)} ETB received via {lastPayment?.method}
         </p>
         <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '32px' }}>Table is now marked as Free.</p>
-        <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-          <button className="btn btn-outline" onClick={printReceipt}><Printer size={15} /> Print Receipt Again</button>
-          <button className="btn btn-gold" onClick={() => window.location.href = '/dashboard/tables'}>Back to Tables</button>
-        </div>
+        <button className="btn btn-gold" onClick={() => window.location.href = '/dashboard/tables'}>Back to Tables</button>
       </div>
     )
   }

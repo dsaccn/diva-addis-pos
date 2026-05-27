@@ -28,9 +28,11 @@ const navItems: NavItem[] = [
 
 interface SidebarProps {
   user: { id: string; username: string; fullName: string; role: string }
+  isOpen?: boolean
+  onClose?: () => void
 }
 
-export default function Sidebar({ user }: SidebarProps) {
+export default function Sidebar({ user, isOpen = true, onClose }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
 
@@ -41,78 +43,94 @@ export default function Sidebar({ user }: SidebarProps) {
     router.push('/login')
   }
 
+  function handleNavClick() {
+    onClose?.()
+  }
+
   return (
-    <aside className="sidebar">
-      {/* Logo */}
-      <div style={{ padding: '24px 20px', borderBottom: '1px solid var(--black-border)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{
-            width: '36px', height: '36px', borderRadius: '50%',
-            border: '1.5px solid var(--gold)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: 'rgba(201,168,76,0.05)', flexShrink: 0
-          }}>
-            <span style={{ fontSize: '14px' }}>✦</span>
-          </div>
-          <div>
-            <div className="font-cinzel gold-text" style={{ fontSize: '13px', fontWeight: '700', letterSpacing: '1px' }}>
-              DIVA ADDIS
+    <>
+      {/* Backdrop overlay — only rendered on mobile when open */}
+      {onClose && (
+        <div
+          className={`sidebar-overlay${isOpen ? ' active' : ''}`}
+          onClick={onClose}
+          aria-hidden="true"
+        />
+      )}
+
+      <aside className={`sidebar${isOpen ? ' open' : ''}`}>
+        {/* Logo */}
+        <div style={{ padding: '24px 20px', borderBottom: '1px solid var(--black-border)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{
+              width: '36px', height: '36px', borderRadius: '50%',
+              border: '1.5px solid var(--gold)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'rgba(201,168,76,0.05)', flexShrink: 0
+            }}>
+              <span style={{ fontSize: '14px' }}>✦</span>
             </div>
-            <div style={{ fontSize: '9px', color: 'var(--text-muted)', letterSpacing: '2px' }}>LOUNGE</div>
+            <div>
+              <div className="font-cinzel gold-text" style={{ fontSize: '13px', fontWeight: '700', letterSpacing: '1px' }}>
+                DIVA ADDIS
+              </div>
+              <div style={{ fontSize: '9px', color: 'var(--text-muted)', letterSpacing: '2px' }}>LOUNGE</div>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* User info */}
-      <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--black-border)' }}>
-        <div style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: '600' }}>{user.fullName}</div>
-        <div style={{
-          fontSize: '11px', marginTop: '4px', display: 'inline-flex',
-          alignItems: 'center', gap: '4px', color: 'var(--gold)',
-          background: 'rgba(201,168,76,0.08)', padding: '2px 8px',
-          borderRadius: '10px', border: '1px solid rgba(201,168,76,0.2)'
-        }}>
-          {user.role}
+        {/* User info */}
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--black-border)' }}>
+          <div style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: '600' }}>{user.fullName}</div>
+          <div style={{
+            fontSize: '11px', marginTop: '4px', display: 'inline-flex',
+            alignItems: 'center', gap: '4px', color: 'var(--gold)',
+            background: 'rgba(201,168,76,0.08)', padding: '2px 8px',
+            borderRadius: '10px', border: '1px solid rgba(201,168,76,0.2)'
+          }}>
+            {user.role}
+          </div>
         </div>
-      </div>
 
-      {/* Nav items */}
-      <nav style={{ flex: 1, padding: '12px 10px', overflowY: 'auto' }}>
-        {filtered.map(item => {
-          const active = pathname.startsWith(item.href)
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '10px',
-                padding: '11px 12px', borderRadius: '8px', marginBottom: '2px',
-                color: active ? 'var(--gold)' : 'var(--text-secondary)',
-                background: active ? 'rgba(201,168,76,0.08)' : 'transparent',
-                border: active ? '1px solid rgba(201,168,76,0.15)' : '1px solid transparent',
-                textDecoration: 'none', fontSize: '14px', fontWeight: active ? '600' : '400',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              {item.icon}
-              <span style={{ flex: 1 }}>{item.label}</span>
-              {active && <ChevronRight size={14} />}
-            </Link>
-          )
-        })}
-      </nav>
+        {/* Nav items */}
+        <nav style={{ flex: 1, padding: '12px 10px', overflowY: 'auto' }}>
+          {filtered.map(item => {
+            const active = pathname.startsWith(item.href)
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={handleNavClick}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '10px',
+                  padding: '11px 12px', borderRadius: '8px', marginBottom: '2px',
+                  color: active ? 'var(--gold)' : 'var(--text-secondary)',
+                  background: active ? 'rgba(201,168,76,0.08)' : 'transparent',
+                  border: active ? '1px solid rgba(201,168,76,0.15)' : '1px solid transparent',
+                  textDecoration: 'none', fontSize: '14px', fontWeight: active ? '600' : '400',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                {item.icon}
+                <span style={{ flex: 1 }}>{item.label}</span>
+                {active && <ChevronRight size={14} />}
+              </Link>
+            )
+          })}
+        </nav>
 
-      {/* Logout */}
-      <div style={{ padding: '12px 10px', borderTop: '1px solid var(--black-border)' }}>
-        <button
-          onClick={handleLogout}
-          className="btn btn-ghost"
-          style={{ width: '100%', justifyContent: 'flex-start', gap: '10px', padding: '11px 12px' }}
-        >
-          <LogOut size={18} />
-          Sign Out
-        </button>
-      </div>
-    </aside>
+        {/* Logout */}
+        <div style={{ padding: '12px 10px', borderTop: '1px solid var(--black-border)' }}>
+          <button
+            onClick={handleLogout}
+            className="btn btn-ghost"
+            style={{ width: '100%', justifyContent: 'flex-start', gap: '10px', padding: '11px 12px' }}
+          >
+            <LogOut size={18} />
+            Sign Out
+          </button>
+        </div>
+      </aside>
+    </>
   )
 }

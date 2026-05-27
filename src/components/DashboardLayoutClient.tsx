@@ -1,0 +1,34 @@
+'use client'
+
+import { useState } from 'react'
+import Sidebar from '@/components/Sidebar'
+import MobileHeader from '@/components/MobileHeader'
+
+interface Session {
+  id: string
+  username: string
+  fullName: string
+  role: string
+}
+
+export default function DashboardLayout({ children, session }: { children: React.ReactNode; session: Session }) {
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  return (
+    <div style={{ display: 'flex', minHeight: '100vh' }}>
+      {/* Mobile top bar */}
+      <MobileHeader isOpen={sidebarOpen} onToggle={() => setSidebarOpen(prev => !prev)} />
+
+      {/* Sidebar — always rendered; CSS handles slide on mobile */}
+      <Sidebar
+        user={session}
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+      />
+
+      <main className="main-content" style={{ flex: 1 }}>
+        {children}
+      </main>
+    </div>
+  )
+}
