@@ -14,12 +14,12 @@ export async function POST(request: Request) {
     const user = await prisma.user.findUnique({ where: { username } })
 
     if (!user || !user.active) {
-      return NextResponse.json({ error: 'Invalid username or password' }, { status: 401 })
+      return NextResponse.json({ error: 'No account found with that username' }, { status: 401 })
     }
 
     const valid = await bcrypt.compare(password, user.passwordHash)
     if (!valid) {
-      return NextResponse.json({ error: 'Invalid username or password' }, { status: 401 })
+      return NextResponse.json({ error: 'Password is incorrect. Please try again.' }, { status: 401 })
     }
 
     await createSession({
