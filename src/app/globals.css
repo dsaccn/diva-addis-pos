@@ -457,3 +457,16 @@ html, body {
   }
 }
 
+
+/* OfflineBanner animations */
+@keyframes ob-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+.ob-spin { animation: ob-spin 1s linear infinite; }
+
+@keyframes ob-slideDown {
+  from { transform: translateY(-100%); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+.offline-banner { animation: ob-slideDown 0.3s ease-out; }

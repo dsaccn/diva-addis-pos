@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Sidebar from '@/components/Sidebar'
 import MobileHeader from '@/components/MobileHeader'
+import OfflineBanner from '@/components/OfflineBanner'
 
 interface Session {
   id: string
@@ -16,6 +17,9 @@ export default function DashboardLayout({ children, session }: { children: React
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
+      {/* Offline/Sync status banner — fixed at top of screen */}
+      <OfflineBanner />
+
       {/* Mobile top bar */}
       <MobileHeader isOpen={sidebarOpen} onToggle={() => setSidebarOpen(prev => !prev)} />
 

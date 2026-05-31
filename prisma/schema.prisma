@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -65,12 +65,14 @@ model Table {
 }
 
 model Order {
-  id        String   @id @default(cuid())
-  tableId   String
-  waiterId  String
-  status    String   @default("OPEN") // OPEN, PAID, CANCELLED
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(cuid())
+  tableId     String
+  waiterId    String
+  status      String   @default("OPEN") // OPEN, PAID, CANCELLED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  pendingSync Boolean  @default(true)  // true = not yet synced to cloud
+  syncedAt    DateTime?               // when it was last synced
 
   table      Table       @relation(fields: [tableId], references: [id])
   waiter     User        @relation(fields: [waiterId], references: [id])
@@ -87,6 +89,7 @@ model OrderItem {
   status       String    @default("PENDING") // PENDING, PRINTED, CANCELLED
   printedAt    DateTime?
   createdAt    DateTime  @default(now())
+  pendingSync  Boolean   @default(true)
 
   order        Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
   menuItem     MenuItem       @relation(fields: [menuItemId], references: [id])
@@ -104,6 +107,7 @@ model Payment {
   isComplimentary Boolean  @default(false)
   notes           String?
   createdAt       DateTime @default(now())
+  pendingSync     Boolean  @default(true)
 
   order   Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
   cashier User  @relation(fields: [cashierId], references: [id])
@@ -115,6 +119,7 @@ model Cancellation {
   managerId   String
   reason      String
   createdAt   DateTime @default(now())
+  pendingSync Boolean  @default(true)
 
   orderItem OrderItem @relation(fields: [orderItemId], references: [id])
   manager   User      @relation(fields: [managerId], references: [id])

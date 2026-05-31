@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev -H 0.0.0.0",
     "build": "next build",
+    "vercel-build": "npx prisma generate --schema=prisma/schema.postgres.prisma && next build",
     "start": "next start",
     "lint": "eslint",
     "db:migrate": "npx prisma migrate dev --name init",
@@ -31,6 +32,7 @@
     "@tailwindcss/postcss": "^4",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
+    "@types/pg": "^8.20.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",

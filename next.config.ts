@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Service worker is handled manually via public/sw.js
 };
 
 export default nextConfig;

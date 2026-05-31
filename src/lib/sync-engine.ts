@@ -72,6 +72,9 @@ export async function getPendingSyncCount(): Promise<number> {
  * Does not block the response. Skips if already syncing.
  */
 export function backgroundSync(): void {
+  // On Vercel, we write directly to Neon database already, so no sync is needed.
+  if (process.env.VERCEL) return
+
   if (isSyncing) return
   syncToCloud().catch(e => console.warn('[BackgroundSync] Error:', String(e)))
 }
