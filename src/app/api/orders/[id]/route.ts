@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { backgroundSync } from '@/lib/sync-engine'
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -28,6 +29,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const { id } = await params
     const body = await req.json()
     const order = await prisma.order.update({ where: { id }, data: body })
+    
+    // Trigger background sync to Neon
+    backgroundSync()
+
     return NextResponse.json(order)
   } catch (err) {
     console.error('[PATCH /api/orders/[id]]', err)

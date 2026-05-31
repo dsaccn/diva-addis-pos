@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { backgroundSync } from '@/lib/sync-engine'
 
 export async function POST(req: Request) {
   const { orderId, cashierId, amount, method, discount, discountType, isComplimentary, notes } = await req.json()
@@ -15,6 +16,9 @@ export async function POST(req: Request) {
 
   // Free up the table
   await prisma.table.update({ where: { id: payment.order.tableId }, data: { status: 'FREE' } })
+
+  // Trigger background sync to Neon
+  backgroundSync()
 
   return NextResponse.json(payment)
 }

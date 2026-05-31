@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { backgroundSync } from '@/lib/sync-engine'
 
 // Helper: deduct ingredient stock for a list of ordered items
 async function deductIngredients(items: { menuItemId: string; quantity: number }[]) {
@@ -120,6 +121,9 @@ export async function POST(req: Request) {
 
     // Deduct ingredient stock based on recipes
     await deductIngredients(items)
+
+    // Kick off a background sync to Neon immediately (non-blocking)
+    backgroundSync()
 
     return NextResponse.json(order)
   } catch (err) {

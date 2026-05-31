@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { backgroundSync } from '@/lib/sync-engine'
 
 // Helper: deduct ingredient stock based on recipes
 async function deductIngredients(items: { menuItemId: string; quantity: number }[]) {
@@ -28,6 +29,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       where: { id: { in: itemIds } },
       data: { status: 'PRINTED', printedAt: new Date() },
     })
+
+    // Trigger background sync to Neon
+    backgroundSync()
+
     return NextResponse.json({ success: true })
   } catch (err) {
     console.error('[PATCH /api/orders/[id]/items]', err)
@@ -74,6 +79,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     // Deduct ingredient stock based on recipes
     await deductIngredients(items)
+
+    // Trigger background sync to Neon
+    backgroundSync()
 
     return NextResponse.json({ success: true })
   } catch (err) {

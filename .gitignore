@@ -39,3 +39,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# SQLite local database (never push to git — Vercel uses Neon)
+*.db
+*.db-shm
+*.db-wal

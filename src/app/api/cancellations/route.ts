@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { backgroundSync } from '@/lib/sync-engine'
 
 // Cancel an order item (requires manager approval)
 export async function POST(req: Request) {
@@ -46,6 +47,9 @@ export async function POST(req: Request) {
       manager: { select: { fullName: true } },
     },
   })
+
+  // Trigger background sync to Neon
+  backgroundSync()
 
   return NextResponse.json(cancellation)
 }

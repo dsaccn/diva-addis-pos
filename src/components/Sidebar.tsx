@@ -2,10 +2,11 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
 import {
   LayoutGrid, UtensilsCrossed, CreditCard, Users,
   Package, BarChart2, LogOut, ClipboardList,
-  ChevronRight, ChefHat
+  ChevronRight, ChefHat, Wifi, WifiOff
 } from 'lucide-react'
 
 interface NavItem {
@@ -35,6 +36,42 @@ interface SidebarProps {
 export default function Sidebar({ user, isOpen = true, onClose }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
+  const [isOnline, setIsOnline] = useState(true)
+  const [pendingCount, setPendingCount] = useState(0)
+
+  useEffect(() => {
+    setIsOnline(navigator.onLine)
+
+    const handleOnline = () => setIsOnline(true)
+    const handleOffline = () => setIsOnline(false)
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+
+    // Poll pending sync count every 60s
+    const checkPending = async () => {
+      try {
+        const res = await fetch('/api/sync', { cache: 'no-store' })
+        if (res.ok) {
+          const data = await res.json()
+          setPendingCount(data.pendingCount ?? 0)
+        }
+      } catch { /* offline */ }
+    }
+    checkPending()
+    const interval = setInterval(checkPending, 60_000)
+
+    // React immediately to database write mutations or sync completions
+    window.addEventListener('db-write-success', checkPending)
+    window.addEventListener('sync-complete', checkPending)
+
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+      window.removeEventListener('db-write-success', checkPending)
+      window.removeEventListener('sync-complete', checkPending)
+      clearInterval(interval)
+    }
+  }, [])
 
   const filtered = navItems.filter(item => item.roles.includes(user.role))
 
@@ -119,8 +156,27 @@ export default function Sidebar({ user, isOpen = true, onClose }: SidebarProps) 
           })}
         </nav>
 
-        {/* Logout */}
+        {/* Logout + sync status */}
         <div style={{ padding: '12px 10px', borderTop: '1px solid var(--black-border)' }}>
+          {/* Sync status row */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '6px',
+            padding: '6px 12px', marginBottom: '6px',
+            borderRadius: '8px',
+            background: isOnline ? 'rgba(34,197,94,0.06)' : 'rgba(220,38,38,0.06)',
+            border: `1px solid ${isOnline ? 'rgba(34,197,94,0.15)' : 'rgba(220,38,38,0.15)'}`,
+          }}>
+            {isOnline
+              ? <Wifi size={13} style={{ color: '#22c55e' }} />
+              : <WifiOff size={13} style={{ color: '#ef4444' }} />
+            }
+            <span style={{
+              fontSize: '11px', fontWeight: '500',
+              color: isOnline ? '#22c55e' : '#ef4444',
+            }}>
+              {isOnline ? (pendingCount > 0 ? `${pendingCount} pending sync` : 'Synced') : 'Offline'}
+            </span>
+          </div>
           <button
             onClick={handleLogout}
             className="btn btn-ghost"

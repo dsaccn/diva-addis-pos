@@ -1,0 +1,159 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("NEON_DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(cuid())
+  username     String    @unique
+  passwordHash String
+  fullName     String
+  role         String    @default("WAITER") // ADMIN, MANAGER, CASHIER, WAITER
+  phone        String?
+  active       Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+
+  orders        Order[]
+  payments      Payment[]
+  cancellations Cancellation[]
+  shiftLogs     ShiftLog[]
+}
+
+model Category {
+  id        String     @id @default(cuid())
+  name      String
+  type      String     // FOOD, DRINK
+  createdAt DateTime   @default(now())
+
+  menuItems MenuItem[]
+}
+
+model MenuItem {
+  id                String   @id @default(cuid())
+  categoryId        String?
+  name              String
+  description       String?
+  price             Float
+  available         Boolean  @default(true)
+  stockQuantity     Int      @default(0)
+  barQuantity       Int      @default(0)
+  costPrice         Float    @default(0)
+  lowStockThreshold Int      @default(5)
+  parentItemId      String?
+  unitMultiplier    Float    @default(1)
+  createdAt         DateTime @default(now())
+
+  category   Category?   @relation(fields: [categoryId], references: [id])
+  orderItems OrderItem[]
+  recipes    Recipe[]
+  parentItem MenuItem?   @relation("UnitLink", fields: [parentItemId], references: [id], onDelete: SetNull)
+  childItems MenuItem[]  @relation("UnitLink")
+}
+
+model Table {
+  id           String   @id @default(cuid())
+  number       String   @unique
+  status       String   @default("FREE")
+  mergedWithId String?
+  createdAt    DateTime @default(now())
+
+  orders Order[]
+}
+
+model Order {
+  id          String    @id @default(cuid())
+  tableId     String
+  waiterId    String
+  status      String    @default("OPEN")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  pendingSync Boolean   @default(false) // On cloud, default false (already on cloud)
+  syncedAt    DateTime?
+
+  table      Table       @relation(fields: [tableId], references: [id])
+  waiter     User        @relation(fields: [waiterId], references: [id])
+  orderItems OrderItem[]
+  payment    Payment?
+}
+
+model OrderItem {
+  id          String    @id @default(cuid())
+  orderId     String
+  menuItemId  String
+  quantity    Int
+  notes       String?
+  status      String    @default("PENDING")
+  printedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  pendingSync Boolean   @default(false)
+
+  order        Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem     MenuItem       @relation(fields: [menuItemId], references: [id])
+  cancellation Cancellation?
+}
+
+model Payment {
+  id              String   @id @default(cuid())
+  orderId         String   @unique
+  cashierId       String
+  amount          Float
+  method          String
+  discount        Float    @default(0)
+  discountType    String   @default("fixed")
+  isComplimentary Boolean  @default(false)
+  notes           String?
+  createdAt       DateTime @default(now())
+  pendingSync     Boolean  @default(false)
+
+  order   Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  cashier User  @relation(fields: [cashierId], references: [id])
+}
+
+model Cancellation {
+  id          String   @id @default(cuid())
+  orderItemId String   @unique
+  managerId   String
+  reason      String
+  createdAt   DateTime @default(now())
+  pendingSync Boolean  @default(false)
+
+  orderItem OrderItem @relation(fields: [orderItemId], references: [id])
+  manager   User      @relation(fields: [managerId], references: [id])
+}
+
+model ShiftLog {
+  id        String    @id @default(cuid())
+  userId    String
+  clockIn   DateTime  @default(now())
+  clockOut  DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Ingredient {
+  id           String   @id @default(cuid())
+  name         String
+  unit         String
+  quantity     Float    @default(0)
+  minThreshold Float    @default(0)
+  createdAt    DateTime @default(now())
+
+  recipes      Recipe[]
+}
+
+model Recipe {
+  id           String     @id @default(cuid())
+  menuItemId   String
+  ingredientId String
+  quantity     Float
+
+  menuItem     MenuItem   @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+
+  @@unique([menuItemId, ingredientId])
+}
