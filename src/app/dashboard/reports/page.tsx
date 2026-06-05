@@ -37,6 +37,17 @@ interface ReportData {
     tax: number
     grandTotal: number
   }
+  inventoryLogs?: {
+    id: string
+    itemName: string
+    type: string
+    action: string
+    quantity: number
+    prevQty: number
+    newQty: number
+    userName: string
+    createdAt: string
+  }[]
 }
 
 export default function ReportsPage() {
@@ -218,7 +229,8 @@ export default function ReportsPage() {
     { id: 'best-sellers', label: 'Best Sellers', icon: <TrendingUp size={14}/> },
     { id: 'staff', label: 'Staff Performance', icon: <TrendingUp size={14}/> },
     { id: 'cancellations', label: 'Cancellations', icon: <XCircle size={14}/> },
-    { id: 'inventory', label: 'Low Stock', icon: <AlertTriangle size={14}/> }
+    { id: 'inventory', label: 'Low Stock', icon: <AlertTriangle size={14}/> },
+    { id: 'inventory-logs', label: 'Inventory Control Log', icon: <RefreshCw size={14}/> }
   ]
 
   if (loading) return (
@@ -985,6 +997,61 @@ export default function ReportsPage() {
             </div>
           ),
           '✅ All items have sufficient stock.'
+        )
+
+        if (activeTab === 'inventory-logs') return renderResponsiveTable(
+          ['Date & Time', 'Item Name', 'Source/Type', 'Action', 'Qty Changed', 'Prev Qty', 'New Qty', 'User'],
+          data.inventoryLogs || [],
+          (log) => (
+            <tr key={log.id} className="table-row-hover" style={{ borderBottom: '1px solid var(--black-border)' }}>
+              <td style={{ padding: '16px 20px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                {new Date(log.createdAt).toLocaleString('en-ET', { dateStyle: 'medium', timeStyle: 'short' })}
+              </td>
+              <td style={{ padding: '16px 20px', fontWeight: '700' }}>{log.itemName}</td>
+              <td style={{ padding: '16px 20px' }}>
+                <span className="badge badge-outline" style={{ fontSize: '11px' }}>{log.type}</span>
+              </td>
+              <td style={{ padding: '16px 20px' }}>
+                <span className={`badge ${
+                  log.action === 'ADD' || log.action === 'INITIAL' ? 'badge-free' : 
+                  log.action === 'TRANSFER' ? 'badge-occupied' : 'badge-open'
+                }`}>
+                  {log.action}
+                </span>
+              </td>
+              <td style={{ padding: '16px 20px', fontWeight: '700', color: (log.action === 'ADD' || log.action === 'INITIAL') ? 'var(--success)' : 'var(--text-primary)' }}>
+                {(log.action === 'ADD' || log.action === 'INITIAL') ? `+${log.quantity}` : log.quantity}
+              </td>
+              <td style={{ padding: '16px 20px', color: 'var(--text-muted)' }}>{log.prevQty}</td>
+              <td style={{ padding: '16px 20px', fontWeight: '600' }}>{log.newQty}</td>
+              <td style={{ padding: '16px 20px', fontWeight: '600' }}>{log.userName}</td>
+            </tr>
+          ),
+          (log) => (
+            <div key={log.id} className="card" style={{ background: 'var(--black-card)', border: '1px solid var(--black-border)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontWeight: '700', fontSize: '14px' }}>{log.itemName}</span>
+                <span className={`badge ${
+                  log.action === 'ADD' || log.action === 'INITIAL' ? 'badge-free' : 
+                  log.action === 'TRANSFER' ? 'badge-occupied' : 'badge-open'
+                }`} style={{ fontSize: '10px' }}>{log.action}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                <span>Type: <b>{log.type}</b></span>
+                <span>User: <b>{log.userName}</b></span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--black-border)', paddingTop: '8px', marginTop: '4px' }}>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                  {new Date(log.createdAt).toLocaleString('en-ET', { dateStyle: 'medium', timeStyle: 'short' })}
+                </div>
+                <div style={{ fontSize: '13px', color: 'var(--text-primary)' }}>
+                  Qty: <b style={{ color: (log.action === 'ADD' || log.action === 'INITIAL') ? 'var(--success)' : 'inherit' }}>{(log.action === 'ADD' || log.action === 'INITIAL') ? `+${log.quantity}` : log.quantity}</b> 
+                  <span style={{ color: 'var(--text-muted)', fontSize: '11px', marginLeft: '6px' }}>({log.prevQty} → {log.newQty})</span>
+                </div>
+              </div>
+            </div>
+          ),
+          'No inventory logs recorded.'
         )
 
         return null;

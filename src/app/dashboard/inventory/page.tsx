@@ -10,7 +10,7 @@ interface Ingredient { id: string; name: string; unit: string; quantity: number;
 const UNITS = ['grams', 'kg', 'ml', 'liters', 'pieces', 'cups', 'tbsp', 'tsp']
 
 export default function InventoryPage() {
-  const [tab, setTab] = useState<'drinks' | 'ingredients'>('drinks')
+  const [tab, setTab] = useState<'drinks' | 'ingredients' | 'logs'>('drinks')
   const [searchQuery, setSearchQuery] = useState('')
 
   // Drink stock state
@@ -31,6 +31,10 @@ export default function InventoryPage() {
   const [ingForm, setIngForm] = useState({ name: '', unit: 'grams', quantity: '0', minThreshold: '0' })
   const [showIngForm, setShowIngForm] = useState(false)
   const [ingError, setIngError] = useState('')
+  
+  // Stock logging state
+  const [logs, setLogs] = useState<any[]>([])
+  const [loadingLogs, setLoadingLogs] = useState(true)
 
   const loadItems = useCallback(async () => {
     setLoadingItems(true)
@@ -77,7 +81,23 @@ export default function InventoryPage() {
     }
   }, [])
 
-  useEffect(() => { loadItems(); loadIngredients(); loadCategories(); }, [loadItems, loadIngredients, loadCategories])
+  const loadLogs = useCallback(async () => {
+    setLoadingLogs(true)
+    try {
+      const res = await fetch('/api/inventory/logs')
+      if (res.ok) {
+        setLogs(await res.json())
+      } else {
+        console.error('Failed to load inventory logs:', res.statusText)
+      }
+    } catch (err) {
+      console.error('Error loading inventory logs:', err)
+    } finally {
+      setLoadingLogs(false)
+    }
+  }, [])
+
+  useEffect(() => { loadItems(); loadIngredients(); loadCategories(); loadLogs(); }, [loadItems, loadIngredients, loadCategories, loadLogs])
 
   // Drink stock functions
   async function adjustStock(delta: number) {
@@ -111,7 +131,7 @@ export default function InventoryPage() {
         body: JSON.stringify(updateData),
       })
     }
-    setAdjustTarget(null); setAdjustQty(''); setAdjustCostPrice(''); loadItems()
+    setAdjustTarget(null); setAdjustQty(''); setAdjustCostPrice(''); loadItems(); loadLogs()
   }
 
   async function handleTransfer() {
@@ -125,7 +145,7 @@ export default function InventoryPage() {
       alert(error || 'Failed to transfer')
       return
     }
-    setTransferTarget(null); setTransferQty(''); loadItems()
+    setTransferTarget(null); setTransferQty(''); loadItems(); loadLogs()
   }
 
   // Ingredient functions
@@ -159,6 +179,7 @@ export default function InventoryPage() {
     }
     setShowIngForm(false)
     loadIngredients()
+    loadLogs()
   }
 
   async function deleteIngredient(id: string) {
@@ -200,8 +221,8 @@ export default function InventoryPage() {
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', borderBottom: '1px solid var(--black-border)', paddingBottom: '0' }}>
-        {([['drinks', '📦 Store Stock'], ['ingredients', '🥩 Ingredients']] as const).map(([key, label]) => (
+      <div className="hide-scrollbar" style={{ display: 'flex', gap: '8px', marginBottom: '20px', borderBottom: '1px solid var(--black-border)', paddingBottom: '0', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+        {([['drinks', '📦 Store Stock'], ['ingredients', '🥩 Ingredients'], ['logs', '📋 Control Logs']] as const).map(([key, label]) => (
           <button
             key={key}
             onClick={() => setTab(key)}
@@ -211,6 +232,7 @@ export default function InventoryPage() {
               borderBottom: tab === key ? '2px solid var(--gold)' : '2px solid transparent',
               color: tab === key ? 'var(--gold)' : 'var(--text-secondary)',
               transition: 'all 0.2s',
+              whiteSpace: 'nowrap',
             }}
           >
             {label}
@@ -570,6 +592,89 @@ export default function InventoryPage() {
                 </div>
               )
             })}
+          </div>
+        </>
+      )}
+
+      {/* ── CONTROL LOGS TAB ── */}
+      {tab === 'logs' && (
+        <>
+          {/* Desktop Table View */}
+          <div className="card desktop-only-table" style={{ padding: 0, overflow: 'hidden', width: '100%' }}>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: 'var(--black-hover)' }}>
+                    {['Date & Time', 'Item Name', 'Source/Type', 'Action', 'Qty Changed', 'Prev Qty', 'New Qty', 'User'].map(h => (
+                      <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {loadingLogs ? (
+                    <tr><td colSpan={8} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>Loading...</td></tr>
+                  ) : logs.length === 0 ? (
+                    <tr><td colSpan={8} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No logs found.</td></tr>
+                  ) : logs.map(log => (
+                    <tr key={log.id} style={{ borderTop: '1px solid var(--black-border)' }}>
+                      <td style={{ padding: '12px 16px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                        {new Date(log.createdAt).toLocaleString('en-ET', { dateStyle: 'medium', timeStyle: 'short' })}
+                      </td>
+                      <td style={{ padding: '12px 16px', fontWeight: '700', color: 'var(--text-primary)' }}>{log.itemName}</td>
+                      <td style={{ padding: '12px 16px' }}>
+                        <span className="badge badge-outline" style={{ fontSize: '11px' }}>{log.type}</span>
+                      </td>
+                      <td style={{ padding: '12px 16px' }}>
+                        <span className={`badge ${
+                          log.action === 'ADD' || log.action === 'INITIAL' ? 'badge-free' : 
+                          log.action === 'TRANSFER' ? 'badge-occupied' : 'badge-open'
+                        }`} style={{ fontSize: '11px' }}>
+                          {log.action}
+                        </span>
+                      </td>
+                      <td style={{ padding: '12px 16px', fontWeight: '700', color: (log.action === 'ADD' || log.action === 'INITIAL') ? 'var(--success)' : 'var(--text-primary)' }}>
+                        {(log.action === 'ADD' || log.action === 'INITIAL') ? `+${log.quantity}` : log.quantity}
+                      </td>
+                      <td style={{ padding: '12px 16px', color: 'var(--text-secondary)' }}>{log.prevQty}</td>
+                      <td style={{ padding: '12px 16px', fontWeight: '600', color: 'var(--text-primary)' }}>{log.newQty}</td>
+                      <td style={{ padding: '12px 16px', fontWeight: '600', color: 'var(--text-primary)' }}>{log.userName}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Mobile View Cards */}
+          <div className="mobile-only" style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%' }}>
+            {loadingLogs ? (
+              <div className="card" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>Loading...</div>
+            ) : logs.length === 0 ? (
+              <div className="card" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No logs found.</div>
+            ) : logs.map(log => (
+              <div key={log.id} className="card" style={{ background: 'var(--black-card)', border: '1px solid var(--black-border)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontWeight: '700', fontSize: '15px', color: 'var(--text-primary)' }}>{log.itemName}</span>
+                  <span className={`badge ${
+                    log.action === 'ADD' || log.action === 'INITIAL' ? 'badge-free' : 
+                    log.action === 'TRANSFER' ? 'badge-occupied' : 'badge-open'
+                  }`} style={{ fontSize: '11px' }}>{log.action}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                  <span>Type: <b>{log.type}</b></span>
+                  <span>User: <b>{log.userName}</b></span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--black-border)', paddingTop: '10px', marginTop: '4px' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                    {new Date(log.createdAt).toLocaleString('en-ET', { dateStyle: 'medium', timeStyle: 'short' })}
+                  </div>
+                  <div style={{ fontSize: '13px', color: 'var(--text-primary)' }}>
+                    Qty: <b style={{ color: (log.action === 'ADD' || log.action === 'INITIAL') ? 'var(--success)' : 'inherit' }}>{(log.action === 'ADD' || log.action === 'INITIAL') ? `+${log.quantity}` : log.quantity}</b> 
+                    <span style={{ color: 'var(--text-secondary)', fontSize: '11px', marginLeft: '6px' }}>({log.prevQty} → {log.newQty})</span>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </>
       )}
