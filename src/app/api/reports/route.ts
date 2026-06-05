@@ -11,7 +11,7 @@ export async function GET(req: Request) {
     ...(to && { lte: new Date(to + 'T23:59:59') }),
   }
 
-  const [payments, orders, orderItems, cancellations, inventory] = await Promise.all([
+  const [payments, orders, orderItems, cancellations, inventory, inventoryLogs] = await Promise.all([
     prisma.payment.findMany({
       where: from || to ? { createdAt: dateFilter } : {},
       include: {
@@ -40,6 +40,10 @@ export async function GET(req: Request) {
       },
     }),
     prisma.menuItem.findMany({ include: { category: true }, orderBy: { name: 'asc' } }),
+    prisma.inventoryLog.findMany({
+      where: from || to ? { createdAt: dateFilter } : {},
+      orderBy: { createdAt: 'desc' },
+    }),
   ])
 
   // Total revenue
@@ -229,6 +233,7 @@ export async function GET(req: Request) {
     lowStock,
     transactions,
     dailySales,
-    categorizedReport
+    categorizedReport,
+    inventoryLogs,
   })
 }

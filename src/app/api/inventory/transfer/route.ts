@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getSession } from '@/lib/session'
+import { backgroundSync } from '@/lib/sync-engine'
 
 export async function POST(req: Request) {
   try {
@@ -26,6 +28,21 @@ export async function POST(req: Request) {
         barQuantity: { increment: quantity },
       },
     })
+
+    // Log the transfer
+    const session = await getSession()
+    await prisma.inventoryLog.create({
+      data: {
+        itemName: item.name,
+        type: 'STORE',
+        action: 'TRANSFER',
+        quantity,
+        prevQty: item.stockQuantity,
+        newQty: item.stockQuantity - quantity,
+        userName: session?.fullName ?? 'Unknown',
+      },
+    })
+    backgroundSync()
 
     return NextResponse.json(updated)
   } catch (err) {

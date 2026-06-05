@@ -1,64 +1,56 @@
 /**
  * /api/sync
- * GET  – returns pending record count (fast, no Neon connection needed)
- * POST – triggers a full cloud sync (pull latest + push pending)
  *
- * NOTE: Online/offline detection is handled by navigator.onLine in the browser.
- * The GET endpoint deliberately does NOT check Neon reachability to avoid
- * showing "offline" when Neon is slow/paused but the internet is fine.
+ * GET  – returns pending record count (local SQLite, no network)
+ * POST – triggers full bidirectional sync (pull from cloud + push to cloud)
  */
 
 import { NextResponse } from 'next/server'
-import { syncToCloud, isCloudReachable, getPendingSyncCount } from '@/lib/sync-engine'
+import { syncBothDirections, pullFromCloud, getPendingSyncCount } from '@/lib/sync-engine'
 
 export async function GET() {
   if (process.env.VERCEL) {
-    return NextResponse.json({
-      pendingCount: 0,
-      timestamp: new Date().toISOString(),
-      isCloud: true,
-    })
+    return NextResponse.json({ pendingCount: 0, isCloud: true })
   }
 
   try {
     const pendingCount = await getPendingSyncCount()
-    return NextResponse.json({
-      pendingCount,
-      timestamp: new Date().toISOString(),
-    })
+    return NextResponse.json({ pendingCount, timestamp: new Date().toISOString() })
   } catch (err) {
     console.error('[GET /api/sync]', err)
     return NextResponse.json({ pendingCount: 0, error: String(err) }, { status: 500 })
   }
 }
 
-export async function POST() {
+export async function POST(req: Request) {
   if (process.env.VERCEL) {
     return NextResponse.json({
       success: true,
-      pulled: { menuItems: 0, categories: 0, tables: 0, users: 0 },
-      synced: { orders: 0, orderItems: 0, payments: 0, cancellations: 0 },
+      synced: { orders: 0, orderItems: 0, payments: 0, cancellations: 0, inventoryLogs: 0 },
+      pulled: { orders: 0, orderItems: 0 },
       errors: [],
       lastSyncedAt: new Date(),
       isCloud: true,
     })
   }
 
+  // Check if this is a pull-only request
+  const url = new URL(req.url)
+  const pullOnly = url.searchParams.get('pull') === '1'
+
   try {
-    // Only attempt sync if Neon is actually reachable
-    const online = await isCloudReachable()
-    if (!online) {
-      return NextResponse.json(
-        { success: false, error: 'Cloud database not reachable — will retry when online' },
-        { status: 503 }
-      )
+    if (pullOnly) {
+      const result = await pullFromCloud()
+      return NextResponse.json({
+        success: result.errors.length === 0,
+        pulled: result.pulled,
+        errors: result.errors,
+        lastSyncedAt: new Date(),
+      })
     }
 
-    const result = await syncToCloud()
-
-    return NextResponse.json(result, {
-      status: result.success ? 200 : 207, // 207 = partial success
-    })
+    const result = await syncBothDirections()
+    return NextResponse.json(result, { status: result.success ? 200 : 207 })
   } catch (err) {
     console.error('[POST /api/sync]', err)
     return NextResponse.json({ success: false, error: String(err) }, { status: 500 })

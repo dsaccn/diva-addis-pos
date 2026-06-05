@@ -3,22 +3,22 @@
 @import "tailwindcss";
 
 :root {
-  --gold: #C9A84C;
-  --gold-light: #E8C96D;
-  --gold-dark: #8B6914;
-  --black: #0A0A0A;
-  --black-card: #111111;
-  --black-hover: #1A1A1A;
-  --black-border: #2A2A2A;
-  --text-primary: #F5F0E8;
-  --text-secondary: #9A8A6A;
-  --text-muted: #5A5040;
-  --success: #2D6A4F;
-  --success-light: #52B788;
-  --warning: #8B6914;
-  --warning-light: #F4A261;
-  --danger: #7B2D2D;
-  --danger-light: #E63946;
+  --gold: #6366F1;
+  --gold-light: #38BDF8;
+  --gold-dark: #4338CA;
+  --black: #070A13;
+  --black-card: #0F1322;
+  --black-hover: #171E36;
+  --black-border: #202945;
+  --text-primary: #F8FAFC;
+  --text-secondary: #94A3B8;
+  --text-muted: #64748B;
+  --success: #059669;
+  --success-light: #34D399;
+  --warning: #D97706;
+  --warning-light: #FBBF24;
+  --danger: #DC2626;
+  --danger-light: #F87171;
 }
 
 * {
@@ -67,9 +67,9 @@ html, body {
 }
 
 .card-hover:hover {
-  border-color: var(--gold-dark);
+  border-color: var(--gold);
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(201, 168, 76, 0.1);
+  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.15);
 }
 
 /* Buttons */
@@ -94,7 +94,7 @@ html, body {
   background: linear-gradient(135deg, var(--gold-light), var(--gold));
   color: var(--black);
 }
-.btn-gold:hover { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 4px 16px rgba(201,168,76,0.3); }
+.btn-gold:hover { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3); }
 .btn-gold:active { transform: translateY(0); }
 
 .btn-outline {
@@ -102,7 +102,7 @@ html, body {
   border: 1px solid var(--gold-dark);
   color: var(--gold);
 }
-.btn-outline:hover { background: rgba(201,168,76,0.08); border-color: var(--gold); }
+.btn-outline:hover { background: rgba(99, 102, 241, 0.08); border-color: var(--gold); }
 
 .btn-danger {
   background: var(--danger);
@@ -174,7 +174,7 @@ html, body {
 .badge-free { background: rgba(82,183,136,0.15); color: var(--success-light); }
 .badge-occupied { background: rgba(244,162,97,0.15); color: var(--warning-light); }
 .badge-waiting { background: rgba(230,57,70,0.15); color: var(--danger-light); }
-.badge-open { background: rgba(201,168,76,0.15); color: var(--gold); }
+.badge-open { background: rgba(99, 102, 241, 0.15); color: var(--gold); }
 .badge-paid { background: rgba(82,183,136,0.15); color: var(--success-light); }
 .badge-cancelled { background: rgba(90,80,64,0.2); color: var(--text-muted); }
 

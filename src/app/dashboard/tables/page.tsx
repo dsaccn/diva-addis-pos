@@ -44,6 +44,13 @@ export default function TablesPage() {
 
   useEffect(() => { load() }, [load])
 
+  // Auto-refresh when OfflineBanner pulls new cloud orders
+  useEffect(() => {
+    const handleCloudPull = () => load()
+    window.addEventListener('cloud-pull-complete', handleCloudPull)
+    return () => window.removeEventListener('cloud-pull-complete', handleCloudPull)
+  }, [load])
+
   async function addTable() {
     if (!newNumber.trim()) return
     await fetch('/api/tables', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ number: newNumber.trim() }) })

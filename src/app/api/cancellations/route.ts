@@ -48,10 +48,27 @@ export async function POST(req: Request) {
     },
   })
 
+  // Check if all items in the order are now cancelled — if so, free the table
+  const allItems = await prisma.orderItem.findMany({ where: { orderId: orderItem.orderId } })
+  const hasActiveItems = allItems.some(i => i.status !== 'CANCELLED')
+
+  if (!hasActiveItems) {
+    // Cancel the order and free the table
+    const order = await prisma.order.update({
+      where: { id: orderItem.orderId },
+      data: { status: 'CANCELLED', pendingSync: true },
+    })
+    await prisma.table.update({
+      where: { id: order.tableId },
+      data: { status: 'FREE' },
+    })
+  }
+
   // Trigger background sync to Neon
   backgroundSync()
 
   return NextResponse.json(cancellation)
+
 }
 
 export async function GET() {

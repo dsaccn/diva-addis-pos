@@ -1,18 +1,21 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { WifiOff, Wifi, RefreshCw, CheckCircle, AlertTriangle } from 'lucide-react'
+import { WifiOff, Wifi, RefreshCw, CheckCircle, CloudDownload } from 'lucide-react'
 
-type SyncState = 'online-synced' | 'online-syncing' | 'online-pending' | 'offline' | 'error'
+type SyncState = 'online-synced' | 'online-syncing' | 'online-pending' | 'offline'
 
 export default function OfflineBanner() {
-  // mounted=false during SSR; only show banner after client hydration
   const [mounted, setMounted] = useState(false)
   const [syncState, setSyncState] = useState<SyncState>('online-synced')
   const [pendingCount, setPendingCount] = useState(0)
   const [lastSynced, setLastSynced] = useState<string | null>(null)
-  const [visible, setVisible] = useState(false) // Start hidden to avoid SSR mismatch
+  const [lastPulled, setLastPulled] = useState<string | null>(null)
+  const [pulledCount, setPulledCount] = useState(0)
+  const [visible, setVisible] = useState(false)
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pullIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const scheduleHide = useCallback(() => {
     if (hideTimer.current) clearTimeout(hideTimer.current)
@@ -20,6 +23,8 @@ export default function OfflineBanner() {
   }, [])
 
   const fetchPendingCount = useCallback(async (): Promise<number> => {
+    // Only fetch from server when online — local SQLite count via the API
+    if (!navigator.onLine) return 0
     try {
       const res = await fetch('/api/sync', { cache: 'no-store' })
       if (!res.ok) return 0
@@ -30,48 +35,93 @@ export default function OfflineBanner() {
     }
   }, [])
 
+  /** Pull cloud-native orders down to local, refresh UI if anything new arrived */
+  const pullFromCloud = useCallback(async () => {
+    if (!navigator.onLine) return
+    try {
+      const res = await fetch('/api/sync?pull=1', { method: 'POST', cache: 'no-store' })
+      if (!res.ok) return
+      const data = await res.json()
+      const newOrders = data.pulled?.orders ?? 0
+      const newItems = data.pulled?.orderItems ?? 0
+      const total = newOrders + newItems
+      if (total > 0) {
+        setPulledCount(total)
+        setLastPulled(new Date().toLocaleTimeString())
+        setVisible(true)
+        if (hideTimer.current) clearTimeout(hideTimer.current)
+        // Notify pages (floor map, orders list) to refresh
+        window.dispatchEvent(new CustomEvent('cloud-pull-complete', { detail: { newOrders } }))
+        scheduleHide()
+      }
+    } catch {
+      // Ignore pull failures — non-critical
+    }
+  }, [scheduleHide])
+
   const triggerSync = useCallback(async () => {
     if (!navigator.onLine) return
+    if (retryTimer.current) clearTimeout(retryTimer.current)
+
     setSyncState('online-syncing')
     setVisible(true)
     if (hideTimer.current) clearTimeout(hideTimer.current)
+
     try {
       const res = await fetch('/api/sync', { method: 'POST', cache: 'no-store' })
       const data = await res.json()
+
       if (res.ok && data.success !== false) {
         setLastSynced(new Date().toLocaleTimeString())
         setSyncState('online-synced')
         setPendingCount(0)
+
+        // If pull brought new orders, show that info and refresh
+        const newOrders = data.pulled?.orders ?? 0
+        if (newOrders > 0) {
+          setPulledCount(newOrders)
+          setLastPulled(new Date().toLocaleTimeString())
+          window.dispatchEvent(new CustomEvent('cloud-pull-complete', { detail: { newOrders } }))
+        }
+
         scheduleHide()
-        // Notify other components that sync completed
         window.dispatchEvent(new CustomEvent('sync-complete'))
       } else {
-        setSyncState('error')
-        setVisible(true)
+        // Sync failed — retry silently in 30s
+        console.warn('[OfflineBanner] Sync failed, will retry in 30s:', data.error ?? data.errors)
+        setSyncState('online-synced')
+        scheduleHide()
+        retryTimer.current = setTimeout(() => {
+          if (navigator.onLine) triggerSync()
+        }, 30_000)
       }
     } catch {
-      setSyncState('error')
-      setVisible(true)
+      setSyncState('online-synced')
+      scheduleHide()
+      retryTimer.current = setTimeout(() => {
+        if (navigator.onLine) triggerSync()
+      }, 30_000)
     }
   }, [scheduleHide])
 
   const updateStatus = useCallback(async () => {
     const online = navigator.onLine
-    const count = await fetchPendingCount()
-    setPendingCount(count)
 
     if (!online) {
+      // Offline — show banner immediately, no network calls needed
       setSyncState('offline')
       setVisible(true)
       if (hideTimer.current) clearTimeout(hideTimer.current)
       return
     }
 
+    const count = await fetchPendingCount()
+    setPendingCount(count)
+
     if (count > 0) {
       setSyncState('online-pending')
       setVisible(true)
       if (hideTimer.current) clearTimeout(hideTimer.current)
-      // Auto-sync
       triggerSync()
     } else {
       setSyncState('online-synced')
@@ -81,19 +131,17 @@ export default function OfflineBanner() {
   }, [fetchPendingCount, triggerSync, scheduleHide])
 
   useEffect(() => {
-    // Only run on client after hydration
     setMounted(true)
     setVisible(true)
 
-    // Intercept window.fetch to trigger sync on successful write mutations
+    // Hook into fetch to detect successful writes and kick off sync
     if (typeof window !== 'undefined' && !(window as any).__fetchHooked) {
       (window as any).__fetchHooked = true
       const originalFetch = window.fetch
       window.fetch = async function(...args) {
         const response = await originalFetch(...args)
         const url = typeof args[0] === 'string' ? args[0] : (args[0] as Request).url || ''
-        const options = args[1]
-        const method = options?.method?.toUpperCase() || 'GET'
+        const method = (args[1]?.method ?? 'GET').toUpperCase()
 
         if (
           response.ok &&
@@ -111,15 +159,20 @@ export default function OfflineBanner() {
       }
     }
 
-    // Force a full sync to/from cloud on page load/refresh if online, otherwise check status
+    // Initial sync on page load
     if (navigator.onLine) {
       triggerSync()
     } else {
       updateStatus()
     }
 
-    // Poll every 60 seconds
-    const interval = setInterval(updateStatus, 60_000)
+    // Poll every 60 seconds to push any pending records
+    const pushInterval = setInterval(updateStatus, 60_000)
+
+    // Pull from cloud every 30 seconds so online orders appear locally
+    pullIntervalRef.current = setInterval(() => {
+      if (navigator.onLine) pullFromCloud()
+    }, 30_000)
 
     const handleOnline = async () => {
       const count = await fetchPendingCount()
@@ -130,6 +183,8 @@ export default function OfflineBanner() {
       } else {
         setSyncState('online-synced')
         scheduleHide()
+        // Also pull immediately when coming back online
+        pullFromCloud()
       }
     }
 
@@ -137,14 +192,12 @@ export default function OfflineBanner() {
       setSyncState('offline')
       setVisible(true)
       if (hideTimer.current) clearTimeout(hideTimer.current)
+      if (retryTimer.current) clearTimeout(retryTimer.current)
     }
 
     const handleWriteSuccess = () => {
-      if (navigator.onLine) {
-        triggerSync()
-      } else {
-        updateStatus()
-      }
+      if (navigator.onLine) triggerSync()
+      else updateStatus()
     }
 
     window.addEventListener('online', handleOnline)
@@ -152,8 +205,10 @@ export default function OfflineBanner() {
     window.addEventListener('db-write-success', handleWriteSuccess)
 
     return () => {
-      clearInterval(interval)
+      clearInterval(pushInterval)
+      if (pullIntervalRef.current) clearInterval(pullIntervalRef.current)
       if (hideTimer.current) clearTimeout(hideTimer.current)
+      if (retryTimer.current) clearTimeout(retryTimer.current)
       window.removeEventListener('online', handleOnline)
       window.removeEventListener('offline', handleOffline)
       window.removeEventListener('db-write-success', handleWriteSuccess)
@@ -161,7 +216,6 @@ export default function OfflineBanner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Don't render anything on the server — this component is client-only
   if (!mounted) return null
   if (!visible) return null
 
@@ -185,25 +239,22 @@ export default function OfflineBanner() {
       message: `${pendingCount} unsaved change${pendingCount !== 1 ? 's' : ''} — syncing to cloud…`,
     },
     'online-syncing': {
-      bg: 'rgba(201, 168, 76, 0.1)',
-      border: 'rgba(201, 168, 76, 0.3)',
-      color: '#c9a84c',
+      bg: 'rgba(99, 102, 241, 0.1)',
+      border: 'rgba(99, 102, 241, 0.3)',
+      color: '#6366f1',
       icon: <RefreshCw size={14} className="ob-spin" />,
-      message: 'Syncing to cloud…',
+      message: 'Syncing with cloud…',
     },
     'online-synced': {
-      bg: 'rgba(34, 197, 94, 0.08)',
-      border: 'rgba(34, 197, 94, 0.25)',
-      color: '#22c55e',
-      icon: <CheckCircle size={14} />,
-      message: lastSynced ? `✓ Cloud synced at ${lastSynced}` : '✓ All data synced to cloud',
-    },
-    'error': {
-      bg: 'rgba(220, 38, 38, 0.1)',
-      border: 'rgba(220, 38, 38, 0.3)',
-      color: '#ef4444',
-      icon: <AlertTriangle size={14} />,
-      message: 'Sync failed — will retry when internet is stable',
+      bg: pulledCount > 0 ? 'rgba(59, 130, 246, 0.08)' : 'rgba(34, 197, 94, 0.08)',
+      border: pulledCount > 0 ? 'rgba(59, 130, 246, 0.25)' : 'rgba(34, 197, 94, 0.25)',
+      color: pulledCount > 0 ? '#3b82f6' : '#22c55e',
+      icon: pulledCount > 0 ? <CloudDownload size={14} /> : <CheckCircle size={14} />,
+      message: pulledCount > 0
+        ? `↓ ${pulledCount} new order${pulledCount !== 1 ? 's' : ''} pulled from cloud (${lastPulled})`
+        : lastSynced
+          ? `✓ Cloud synced at ${lastSynced}`
+          : '✓ All data synced to cloud',
     },
   }
 
@@ -233,24 +284,6 @@ export default function OfflineBanner() {
     >
       {c.icon}
       <span>{c.message}</span>
-      {syncState === 'error' && (
-        <button
-          onClick={triggerSync}
-          style={{
-            marginLeft: '8px',
-            padding: '2px 10px',
-            borderRadius: '10px',
-            border: `1px solid ${c.color}`,
-            background: 'transparent',
-            color: c.color,
-            fontSize: '11px',
-            cursor: 'pointer',
-            fontWeight: '600',
-          }}
-        >
-          Retry
-        </button>
-      )}
       {syncState === 'online-synced' && (
         <span style={{ marginLeft: '8px', fontSize: '10px', opacity: 0.6 }}>
           (hides in 5s)

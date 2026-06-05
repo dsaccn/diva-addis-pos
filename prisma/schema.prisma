@@ -157,3 +157,16 @@ model Recipe {
 
   @@unique([menuItemId, ingredientId])
 }
+
+model InventoryLog {
+  id          String   @id @default(cuid())
+  itemName    String
+  type        String   // STORE, BAR, INGREDIENT
+  action      String   // ADD, TRANSFER, INITIAL, SET
+  quantity    Float
+  prevQty     Float
+  newQty      Float
+  userName    String
+  createdAt   DateTime @default(now())
+  pendingSync Boolean  @default(true)
+}

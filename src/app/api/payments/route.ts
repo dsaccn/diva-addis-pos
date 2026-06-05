@@ -11,8 +11,10 @@ export async function POST(req: Request) {
     include: { order: { include: { table: true } } },
   })
 
-  // Mark order as paid
-  await prisma.order.update({ where: { id: orderId }, data: { status: 'PAID' } })
+  // Mark order as PAID and flag it for push to cloud (pendingSync=true prevents
+  // the next pullFromCloud from reverting the status back to OPEN before the push
+  // has had a chance to sync the PAID status to Neon)
+  await prisma.order.update({ where: { id: orderId }, data: { status: 'PAID', pendingSync: true } })
 
   // Free up the table
   await prisma.table.update({ where: { id: payment.order.tableId }, data: { status: 'FREE' } })

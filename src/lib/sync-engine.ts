@@ -1,330 +1,414 @@
 /**
- * sync-engine.ts
- * Uses the `pg` package directly for Neon (cloud PostgreSQL).
- * Uses Prisma for local SQLite only.
+ * sync-engine.ts — v3 (bidirectional)
  *
- * Why pg directly? After switching Prisma to SQLite provider, the generated
- * client is SQLite-only and cannot connect to PostgreSQL anymore.
+ * PUSH: local SQLite (pendingSync=true) → Neon
+ * PULL: Neon OPEN orders not present locally → local SQLite
+ *
+ * Design:
+ *  - getPool() creates one shared pg.Pool, reused across requests.
+ *  - isSyncing guard serialises concurrent sync runs.
+ *  - pullFromCloud() uses record ID presence to decide what to insert:
+ *      • Order exists locally + pendingSync=true  → local wins, skip
+ *      • Order exists locally + pendingSync=false → sync status from cloud
+ *      • Order not in local at all               → it's cloud-native, insert it
+ *  - On Vercel every function is a no-op (Vercel writes directly to Neon).
  */
 
 import { prisma } from '@/lib/prisma'
-import { Client as PgClient } from 'pg'
+import { Pool as PgPool } from 'pg'
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface SyncResult {
   success: boolean
-  pulled: { menuItems: number; categories: number; tables: number; users: number }
-  synced: { orders: number; orderItems: number; payments: number; cancellations: number }
+  synced: { orders: number; orderItems: number; payments: number; cancellations: number; inventoryLogs: number }
+  pulled: { orders: number; orderItems: number }
   errors: string[]
   lastSyncedAt: Date | null
 }
 
-let isSyncing = false
+// ─── Shared pool (created lazily, reused across requests) ─────────────────────
 
-async function connectNeon(): Promise<PgClient> {
-  const url = process.env.NEON_DATABASE_URL
-  if (!url) throw new Error('NEON_DATABASE_URL is not set in .env')
-  const client = new PgClient({
-    connectionString: url,
-    connectionTimeoutMillis: 8000,
-    statement_timeout: 15000,
-  })
-  await client.connect()
-  return client
+let _pool: PgPool | null = null
+
+function getPool(): PgPool {
+  if (!_pool) {
+    const url = process.env.NEON_DATABASE_URL
+    if (!url) throw new Error('NEON_DATABASE_URL is not set in .env')
+    _pool = new PgPool({
+      connectionString: url,
+      max: 3,
+      // 3 s — fail-fast when offline so the app never hangs waiting for Neon
+      connectionTimeoutMillis: 3000,
+      idleTimeoutMillis: 30000,
+      ssl: { rejectUnauthorized: false },
+    })
+    _pool.on('error', (err) => {
+      console.warn('[SyncEngine] Pool error (offline?):', err.message)
+      // Destroy the pool so the next sync attempt creates a fresh one
+      _pool = null
+    })
+  }
+  return _pool
 }
 
-/**
- * Quick check: can we reach the Neon database?
- * Uses a short timeout so it fails fast if offline.
- */
-export async function isCloudReachable(): Promise<boolean> {
-  const url = process.env.NEON_DATABASE_URL
-  if (!url) return false
-  const client = new PgClient({
-    connectionString: url,
-    connectionTimeoutMillis: 4000,
-  })
-  try {
-    await client.connect()
-    await client.query('SELECT 1')
-    return true
-  } catch {
-    return false
-  } finally {
-    await client.end().catch(() => {})
+/** Destroy the pool so the next call to getPool() creates a fresh connection.
+ *  Called when a sync fails due to network error so we don't reuse a dead pool. */
+function resetPool() {
+  if (_pool) {
+    _pool.end().catch(() => {})
+    _pool = null
   }
 }
 
+// ─── Sync state ───────────────────────────────────────────────────────────────
+
+let isSyncing = false
+
+// ─── Public API ───────────────────────────────────────────────────────────────
+
 /**
- * Count how many local records are waiting to be pushed to cloud.
+ * Count how many local records are waiting to be pushed.
+ * Fast — only touches local SQLite, no network call.
  */
 export async function getPendingSyncCount(): Promise<number> {
-  const [orders, orderItems, payments, cancellations] = await Promise.all([
+  const [orders, orderItems, payments, cancellations, inventoryLogs] = await Promise.all([
     prisma.order.count({ where: { pendingSync: true } }),
     prisma.orderItem.count({ where: { pendingSync: true } }),
     prisma.payment.count({ where: { pendingSync: true } }),
     prisma.cancellation.count({ where: { pendingSync: true } }),
+    prisma.inventoryLog.count({ where: { pendingSync: true } }),
   ])
-  return orders + orderItems + payments + cancellations
+  return orders + orderItems + payments + cancellations + inventoryLogs
 }
 
 /**
- * Fire-and-forget sync — call from API routes after writes.
+ * Fire-and-forget bidirectional sync — call from API routes after writes.
  * Does not block the response. Skips if already syncing.
  */
 export function backgroundSync(): void {
-  // On Vercel, we write directly to Neon database already, so no sync is needed.
   if (process.env.VERCEL) return
-
   if (isSyncing) return
-  syncToCloud().catch(e => console.warn('[BackgroundSync] Error:', String(e)))
+  syncBothDirections().catch((e) => console.warn('[BackgroundSync]', String(e)))
 }
 
 /**
- * PULL: Neon → SQLite
- * Fetches the latest reference data (menu, tables, users) from Neon
- * and upserts it into the local SQLite DB so local data stays current.
+ * Pull cloud-native orders (created on Vercel) into local SQLite.
+ *
+ * Rules:
+ *  - If order exists locally with pendingSync=true → local is being modified, SKIP
+ *  - If order exists locally with pendingSync=false → already synced, update status only
+ *  - If order does NOT exist locally → it's cloud-native, INSERT it
  */
-async function pullFromCloud(pg: PgClient): Promise<SyncResult['pulled']> {
-  const pulled = { menuItems: 0, categories: 0, tables: 0, users: 0 }
-
-  // Users
-  const { rows: users } = await pg.query('SELECT * FROM "User"')
-  for (const u of users) {
-    await prisma.user.upsert({
-      where: { id: u.id },
-      update: {
-        username: u.username, passwordHash: u.passwordHash,
-        fullName: u.fullName, role: u.role,
-        phone: u.phone ?? null, active: u.active,
-      },
-      create: {
-        id: u.id, username: u.username, passwordHash: u.passwordHash,
-        fullName: u.fullName, role: u.role,
-        phone: u.phone ?? null, active: u.active, createdAt: new Date(u.createdAt),
-      },
-    }).catch(() => {}) // skip if constraint fails
-    pulled.users++
+export async function pullFromCloud(): Promise<{ pulled: { orders: number; orderItems: number }; errors: string[] }> {
+  if (process.env.VERCEL) {
+    return { pulled: { orders: 0, orderItems: 0 }, errors: [] }
   }
 
-  // Categories
-  const { rows: cats } = await pg.query('SELECT * FROM "Category"')
-  for (const c of cats) {
-    await prisma.category.upsert({
-      where: { id: c.id },
-      update: { name: c.name, type: c.type },
-      create: { id: c.id, name: c.name, type: c.type, createdAt: new Date(c.createdAt) },
-    }).catch(() => {})
-    pulled.categories++
-  }
+  const errors: string[] = []
+  const pulled = { orders: 0, orderItems: 0 }
 
-  // Menu Items — parents before children (null parentItemId first)
-  const { rows: items } = await pg.query(
-    'SELECT * FROM "MenuItem" ORDER BY "parentItemId" ASC NULLS FIRST'
-  )
-  for (const m of items) {
-    await prisma.menuItem.upsert({
-      where: { id: m.id },
-      update: {
-        name: m.name, description: m.description ?? null,
-        price: parseFloat(m.price), available: m.available,
-        stockQuantity: parseInt(m.stockQuantity ?? 0),
-        barQuantity: parseInt(m.barQuantity ?? 0),
-        costPrice: parseFloat(m.costPrice ?? 0),
-        lowStockThreshold: parseInt(m.lowStockThreshold ?? 5),
-        categoryId: m.categoryId ?? null,
-        parentItemId: m.parentItemId ?? null,
-        unitMultiplier: parseFloat(m.unitMultiplier ?? 1),
-      },
-      create: {
-        id: m.id,
-        categoryId: m.categoryId ?? null,
-        name: m.name,
-        description: m.description ?? null,
-        price: parseFloat(m.price),
-        available: m.available,
-        stockQuantity: parseInt(m.stockQuantity ?? 0),
-        barQuantity: parseInt(m.barQuantity ?? 0),
-        costPrice: parseFloat(m.costPrice ?? 0),
-        lowStockThreshold: parseInt(m.lowStockThreshold ?? 5),
-        parentItemId: m.parentItemId ?? null,
-        unitMultiplier: parseFloat(m.unitMultiplier ?? 1),
-        createdAt: new Date(m.createdAt),
-      },
-    }).catch(() => {})
-    pulled.menuItems++
-  }
+  try {
+    const pg = getPool()
 
-  // Tables
-  const { rows: tables } = await pg.query('SELECT * FROM "Table"')
-  for (const t of tables) {
-    await prisma.table.upsert({
-      where: { id: t.id },
-      update: { number: t.number, status: t.status, mergedWithId: t.mergedWithId ?? null },
-      create: {
-        id: t.id, number: t.number, status: t.status,
-        mergedWithId: t.mergedWithId ?? null, createdAt: new Date(t.createdAt),
-      },
-    }).catch(() => {})
-    pulled.tables++
-  }
+    // Fetch all OPEN orders from Neon
+    const { rows: cloudOrders } = await pg.query(
+      `SELECT id, "tableId", "waiterId", status, "createdAt", "updatedAt" FROM "Order" WHERE status = 'OPEN' ORDER BY "createdAt" DESC`
+    )
 
-  return pulled
+    for (const co of cloudOrders) {
+      try {
+        const localOrder = await prisma.order.findUnique({ where: { id: co.id } })
+
+        if (!localOrder) {
+          // Cloud-native order — check that the waiter exists locally before inserting
+          const waiterExists = await prisma.user.findUnique({ where: { id: co.waiterId } })
+          if (!waiterExists) {
+            // Waiter account doesn't exist locally yet; skip gracefully
+            console.warn(`[Pull] Order ${co.id} skipped — waiter ${co.waiterId} not in local DB`)
+            continue
+          }
+
+          // Insert the order
+          await prisma.order.create({
+            data: {
+              id: co.id,
+              tableId: co.tableId,
+              waiterId: co.waiterId,
+              status: co.status,
+              createdAt: new Date(co.createdAt),
+              updatedAt: new Date(co.updatedAt),
+              pendingSync: false, // already exists on cloud
+            },
+          })
+
+          // Pull order items for this order
+          const { rows: cloudItems } = await pg.query(
+            `SELECT id, "orderId", "menuItemId", quantity, notes, status, "printedAt", "createdAt"
+             FROM "OrderItem" WHERE "orderId" = $1`,
+            [co.id]
+          )
+
+          for (const ci of cloudItems) {
+            try {
+              const localItem = await prisma.orderItem.findUnique({ where: { id: ci.id } })
+              if (!localItem) {
+                // Verify menuItem exists locally
+                const menuItemExists = await prisma.menuItem.findUnique({ where: { id: ci.menuItemId } })
+                if (!menuItemExists) {
+                  console.warn(`[Pull] OrderItem ${ci.id} skipped — menuItem ${ci.menuItemId} not found locally`)
+                  continue
+                }
+                await prisma.orderItem.create({
+                  data: {
+                    id: ci.id,
+                    orderId: ci.orderId,
+                    menuItemId: ci.menuItemId,
+                    quantity: ci.quantity,
+                    notes: ci.notes ?? null,
+                    status: ci.status,
+                    printedAt: ci.printedAt ? new Date(ci.printedAt) : null,
+                    createdAt: new Date(ci.createdAt),
+                    pendingSync: false,
+                  },
+                })
+                pulled.orderItems++
+              }
+            } catch (e) {
+              errors.push(`Pull OrderItem ${ci.id}: ${String(e)}`)
+            }
+          }
+
+          // Mark table as OCCUPIED locally
+          await prisma.table.update({
+            where: { id: co.tableId },
+            data: { status: 'OCCUPIED' },
+          }).catch(() => {
+            // Table might not exist locally — skip silently
+            console.warn(`[Pull] Table ${co.tableId} not found locally, skipping status update`)
+          })
+
+          pulled.orders++
+        } else if (!localOrder.pendingSync) {
+          // Record exists and is clean — sync status from cloud only if it's more terminal.
+          // NEVER downgrade: if local is PAID or CANCELLED, cloud (still OPEN because not
+          // synced yet) must NOT revert the local payment. Terminal statuses always win.
+          const terminalLocally = localOrder.status === 'PAID' || localOrder.status === 'CANCELLED'
+          if (!terminalLocally && localOrder.status !== co.status) {
+            await prisma.order.update({
+              where: { id: co.id },
+              data: { status: co.status, updatedAt: new Date(co.updatedAt) },
+            })
+            // If cloud closed the order, free the table locally
+            if (co.status !== 'OPEN') {
+              await prisma.table.update({
+                where: { id: co.tableId },
+                data: { status: 'FREE' },
+              }).catch(() => {})
+            }
+          }
+        }
+        // If localOrder.pendingSync = true → local write in flight, skip
+      } catch (e) {
+        errors.push(`Pull Order ${co.id}: ${String(e)}`)
+      }
+    }
+
+    return { pulled, errors }
+  } catch (e) {
+    // Network/connection failed — reset pool so next attempt starts fresh
+    resetPool()
+    return {
+      pulled,
+      errors: [`Fatal pull error (offline?): ${String(e)}`],
+    }
+  }
 }
 
 /**
- * PUSH: SQLite → Neon
- * Finds all local records with pendingSync=true and upserts them into Neon.
- */
-async function pushToCloud(
-  pg: PgClient
-): Promise<{ orders: number; orderItems: number; payments: number; cancellations: number; errors: string[] }> {
-  const result = {
-    orders: 0, orderItems: 0, payments: 0, cancellations: 0, errors: [] as string[],
-  }
-
-  // Orders
-  const pendingOrders = await prisma.order.findMany({ where: { pendingSync: true } })
-  for (const o of pendingOrders) {
-    try {
-      await pg.query(
-        `INSERT INTO "Order" (id, "tableId", "waiterId", status, "createdAt", "updatedAt")
-         VALUES ($1, $2, $3, $4, $5, $6)
-         ON CONFLICT (id) DO UPDATE SET status = EXCLUDED.status, "updatedAt" = EXCLUDED."updatedAt"`,
-        [o.id, o.tableId, o.waiterId, o.status, o.createdAt, o.updatedAt]
-      )
-      await prisma.order.update({
-        where: { id: o.id },
-        data: { pendingSync: false, syncedAt: new Date() },
-      })
-      result.orders++
-    } catch (e) {
-      result.errors.push(`Order ${o.id}: ${String(e)}`)
-    }
-  }
-
-  // OrderItems
-  const pendingItems = await prisma.orderItem.findMany({ where: { pendingSync: true } })
-  for (const oi of pendingItems) {
-    try {
-      await pg.query(
-        `INSERT INTO "OrderItem" (id, "orderId", "menuItemId", quantity, notes, status, "printedAt", "createdAt")
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-         ON CONFLICT (id) DO UPDATE SET
-           status = EXCLUDED.status,
-           quantity = EXCLUDED.quantity,
-           notes = EXCLUDED.notes,
-           "printedAt" = EXCLUDED."printedAt"`,
-        [oi.id, oi.orderId, oi.menuItemId, oi.quantity, oi.notes, oi.status, oi.printedAt, oi.createdAt]
-      )
-      await prisma.orderItem.update({
-        where: { id: oi.id },
-        data: { pendingSync: false },
-      })
-      result.orderItems++
-    } catch (e) {
-      result.errors.push(`OrderItem ${oi.id}: ${String(e)}`)
-    }
-  }
-
-  // Payments
-  const pendingPayments = await prisma.payment.findMany({ where: { pendingSync: true } })
-  for (const pay of pendingPayments) {
-    try {
-      await pg.query(
-        `INSERT INTO "Payment" (id, "orderId", "cashierId", amount, method, discount, "discountType", "isComplimentary", notes, "createdAt")
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-         ON CONFLICT (id) DO UPDATE SET
-           amount = EXCLUDED.amount,
-           method = EXCLUDED.method,
-           discount = EXCLUDED.discount,
-           notes = EXCLUDED.notes`,
-        [
-          pay.id, pay.orderId, pay.cashierId, pay.amount,
-          pay.method, pay.discount, pay.discountType,
-          pay.isComplimentary, pay.notes, pay.createdAt,
-        ]
-      )
-      await prisma.payment.update({
-        where: { id: pay.id },
-        data: { pendingSync: false },
-      })
-      result.payments++
-    } catch (e) {
-      result.errors.push(`Payment ${pay.id}: ${String(e)}`)
-    }
-  }
-
-  // Cancellations
-  const pendingCancellations = await prisma.cancellation.findMany({ where: { pendingSync: true } })
-  for (const c of pendingCancellations) {
-    try {
-      await pg.query(
-        `INSERT INTO "Cancellation" (id, "orderItemId", "managerId", reason, "createdAt")
-         VALUES ($1, $2, $3, $4, $5)
-         ON CONFLICT (id) DO UPDATE SET reason = EXCLUDED.reason`,
-        [c.id, c.orderItemId, c.managerId, c.reason, c.createdAt]
-      )
-      await prisma.cancellation.update({
-        where: { id: c.id },
-        data: { pendingSync: false },
-      })
-      result.cancellations++
-    } catch (e) {
-      result.errors.push(`Cancellation ${c.id}: ${String(e)}`)
-    }
-  }
-
-  return result
-}
-
-/**
- * Main sync: pull latest from Neon, then push local pending changes.
+ * Push all pending local records to Neon.
+ * Safe to call concurrently — isSyncing guard serialises runs.
  */
 export async function syncToCloud(): Promise<SyncResult> {
+  if (process.env.VERCEL) {
+    return {
+      success: true,
+      synced: { orders: 0, orderItems: 0, payments: 0, cancellations: 0, inventoryLogs: 0 },
+      pulled: { orders: 0, orderItems: 0 },
+      errors: [],
+      lastSyncedAt: new Date(),
+    }
+  }
+
   if (isSyncing) {
     return {
       success: false,
-      pulled: { menuItems: 0, categories: 0, tables: 0, users: 0 },
-      synced: { orders: 0, orderItems: 0, payments: 0, cancellations: 0 },
+      synced: { orders: 0, orderItems: 0, payments: 0, cancellations: 0, inventoryLogs: 0 },
+      pulled: { orders: 0, orderItems: 0 },
       errors: ['Sync already in progress'],
       lastSyncedAt: null,
     }
   }
 
   isSyncing = true
-  let pg: PgClient | null = null
+  const errors: string[] = []
+  const synced = { orders: 0, orderItems: 0, payments: 0, cancellations: 0, inventoryLogs: 0 }
 
   try {
-    pg = await connectNeon()
+    const pg = getPool()
 
-    // Pull latest reference data from Neon first (menus, tables, users)
-    const pulled = await pullFromCloud(pg)
+    // ── Pull cloud-native records first ───────────────────────────────────────
+    // (runs inside the isSyncing lock so we don't double-connect)
+    const pullResult = await pullFromCloud()
+    errors.push(...pullResult.errors)
 
-    // Push local pending changes to Neon
-    const pushed = await pushToCloud(pg)
+    // ── Orders ────────────────────────────────────────────────────────────────
+    const pendingOrders = await prisma.order.findMany({ where: { pendingSync: true } })
+    for (const o of pendingOrders) {
+      try {
+        await pg.query(
+          `INSERT INTO "Order" (id, "tableId", "waiterId", status, "createdAt", "updatedAt")
+           VALUES ($1, $2, $3, $4, $5, $6)
+           ON CONFLICT (id) DO UPDATE SET
+             status      = EXCLUDED.status,
+             "updatedAt" = EXCLUDED."updatedAt"`,
+          [o.id, o.tableId, o.waiterId, o.status, o.createdAt, o.updatedAt]
+        )
+        const tableStatus = o.status === 'OPEN' ? 'OCCUPIED' : 'FREE'
+        await pg.query('UPDATE "Table" SET status = $1 WHERE id = $2', [tableStatus, o.tableId])
+
+        await prisma.order.update({
+          where: { id: o.id },
+          data: { pendingSync: false, syncedAt: new Date() },
+        })
+        synced.orders++
+      } catch (e) {
+        errors.push(`Order ${o.id}: ${String(e)}`)
+      }
+    }
+
+    // ── OrderItems ────────────────────────────────────────────────────────────
+    const pendingItems = await prisma.orderItem.findMany({ where: { pendingSync: true } })
+    for (const oi of pendingItems) {
+      try {
+        await pg.query(
+          `INSERT INTO "OrderItem" (id, "orderId", "menuItemId", quantity, notes, status, "printedAt", "createdAt")
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+           ON CONFLICT (id) DO UPDATE SET
+             status      = EXCLUDED.status,
+             quantity    = EXCLUDED.quantity,
+             notes       = EXCLUDED.notes,
+             "printedAt" = EXCLUDED."printedAt"`,
+          [oi.id, oi.orderId, oi.menuItemId, oi.quantity, oi.notes, oi.status, oi.printedAt, oi.createdAt]
+        )
+        await prisma.orderItem.update({
+          where: { id: oi.id },
+          data: { pendingSync: false },
+        })
+        synced.orderItems++
+      } catch (e) {
+        errors.push(`OrderItem ${oi.id}: ${String(e)}`)
+      }
+    }
+
+    // ── Payments ──────────────────────────────────────────────────────────────
+    const pendingPayments = await prisma.payment.findMany({
+      where: { pendingSync: true },
+      include: { order: true },
+    })
+    for (const pay of pendingPayments) {
+      try {
+        await pg.query(
+          `INSERT INTO "Payment" (id, "orderId", "cashierId", amount, method, discount, "discountType", "isComplimentary", notes, "createdAt")
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+           ON CONFLICT ("orderId") DO UPDATE SET
+             amount   = EXCLUDED.amount,
+             method   = EXCLUDED.method,
+             discount = EXCLUDED.discount,
+             notes    = EXCLUDED.notes`,
+          [
+            pay.id, pay.orderId, pay.cashierId,
+            pay.amount, pay.method, pay.discount,
+            pay.discountType, pay.isComplimentary, pay.notes, pay.createdAt,
+          ]
+        )
+        if (pay.order) {
+          await pg.query('UPDATE "Table" SET status = $1 WHERE id = $2', ['FREE', pay.order.tableId])
+        }
+        await prisma.payment.update({
+          where: { id: pay.id },
+          data: { pendingSync: false },
+        })
+        synced.payments++
+      } catch (e) {
+        errors.push(`Payment ${pay.id}: ${String(e)}`)
+      }
+    }
+
+    // ── Cancellations ─────────────────────────────────────────────────────────
+    const pendingCancellations = await prisma.cancellation.findMany({ where: { pendingSync: true } })
+    for (const c of pendingCancellations) {
+      try {
+        await pg.query(
+          `INSERT INTO "Cancellation" (id, "orderItemId", "managerId", reason, "createdAt")
+           VALUES ($1, $2, $3, $4, $5)
+           ON CONFLICT ("orderItemId") DO UPDATE SET reason = EXCLUDED.reason`,
+          [c.id, c.orderItemId, c.managerId, c.reason, c.createdAt]
+        )
+        await prisma.cancellation.update({
+          where: { id: c.id },
+          data: { pendingSync: false },
+        })
+        synced.cancellations++
+      } catch (e) {
+        errors.push(`Cancellation ${c.id}: ${String(e)}`)
+      }
+    }
+
+    // ── InventoryLogs ─────────────────────────────────────────────────────────
+    const pendingLogs = await prisma.inventoryLog.findMany({ where: { pendingSync: true } })
+    for (const log of pendingLogs) {
+      try {
+        await pg.query(
+          `INSERT INTO "InventoryLog" (id, "itemName", type, action, quantity, "prevQty", "newQty", "userName", "createdAt")
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+           ON CONFLICT (id) DO NOTHING`,
+          [log.id, log.itemName, log.type, log.action, log.quantity, log.prevQty, log.newQty, log.userName, log.createdAt]
+        )
+        await prisma.inventoryLog.update({
+          where: { id: log.id },
+          data: { pendingSync: false },
+        })
+        synced.inventoryLogs++
+      } catch (e) {
+        errors.push(`InventoryLog ${log.id}: ${String(e)}`)
+      }
+    }
 
     return {
-      success: pushed.errors.length === 0,
-      pulled,
-      synced: {
-        orders: pushed.orders,
-        orderItems: pushed.orderItems,
-        payments: pushed.payments,
-        cancellations: pushed.cancellations,
-      },
-      errors: pushed.errors,
+      success: errors.length === 0,
+      synced,
+      pulled: pullResult.pulled,
+      errors,
       lastSyncedAt: new Date(),
     }
   } catch (e) {
+    // Network/connection failed — reset pool so next attempt starts fresh
+    resetPool()
     return {
       success: false,
-      pulled: { menuItems: 0, categories: 0, tables: 0, users: 0 },
-      synced: { orders: 0, orderItems: 0, payments: 0, cancellations: 0 },
-      errors: [`Fatal sync error: ${String(e)}`],
+      synced,
+      pulled: { orders: 0, orderItems: 0 },
+      errors: [`Fatal sync error (offline?): ${String(e)}`],
       lastSyncedAt: null,
     }
   } finally {
     isSyncing = false
-    if (pg) await pg.end().catch(() => {})
   }
 }
+
+/**
+ * Runs pull then push in sequence.
+ * Alias kept for clarity when called from the /api/sync POST handler.
+ */
+export const syncBothDirections = syncToCloud

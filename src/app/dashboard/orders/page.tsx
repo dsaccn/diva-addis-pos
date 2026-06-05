@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Plus, Eye, RefreshCw } from 'lucide-react'
@@ -35,6 +35,15 @@ export default function OrdersPage() {
   }, [tableId, filter])
 
   useEffect(() => { load() }, [load])
+
+  // Auto-refresh when OfflineBanner pulls new orders from cloud
+  const loadRef = useRef(load)
+  useEffect(() => { loadRef.current = load }, [load])
+  useEffect(() => {
+    const handleCloudPull = () => loadRef.current()
+    window.addEventListener('cloud-pull-complete', handleCloudPull)
+    return () => window.removeEventListener('cloud-pull-complete', handleCloudPull)
+  }, [])
 
   const statusColors: Record<string, string> = { OPEN: 'badge-open', PAID: 'badge-paid', CANCELLED: 'badge-cancelled' }
 

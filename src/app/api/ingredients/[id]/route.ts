@@ -1,11 +1,34 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getSession } from '@/lib/session'
+import { backgroundSync } from '@/lib/sync-engine'
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
     const body = await req.json()
+
+    // Fetch current ingredient to compare quantity
+    const before = await prisma.ingredient.findUnique({ where: { id } })
     const ingredient = await prisma.ingredient.update({ where: { id }, data: body })
+
+    // Log if quantity changed
+    if (before && body.quantity !== undefined && body.quantity !== before.quantity) {
+      const session = await getSession()
+      await prisma.inventoryLog.create({
+        data: {
+          itemName: ingredient.name,
+          type: 'INGREDIENT',
+          action: body.quantity > before.quantity ? 'ADD' : 'SET',
+          quantity: Math.abs(body.quantity - before.quantity),
+          prevQty: before.quantity,
+          newQty: body.quantity,
+          userName: session?.fullName ?? 'Unknown',
+        },
+      })
+      backgroundSync()
+    }
+
     return NextResponse.json(ingredient)
   } catch (err) {
     console.error('[PATCH /api/ingredients/[id]]', err)

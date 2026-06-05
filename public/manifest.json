@@ -4,8 +4,8 @@
   "description": "Point of Sale System for Diva Addis Lounge — works offline",
   "start_url": "/dashboard/tables",
   "display": "standalone",
-  "background_color": "#0a0a0a",
-  "theme_color": "#c9a84c",
+  "background_color": "#070a13",
+  "theme_color": "#6366f1",
   "orientation": "any",
   "icons": [
     {
