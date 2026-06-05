@@ -66,7 +66,6 @@ export default function PaymentPage() {
     if (res.ok) {
       setLastPayment({ amount: total, method })
       setPaid(true)
-      printReceipt()
     }
     setLoading(false)
   }
@@ -119,7 +118,10 @@ export default function PaymentPage() {
           {lastPayment?.amount.toFixed(2)} ETB received via {lastPayment?.method}
         </p>
         <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '32px' }}>Table is now marked as Free.</p>
-        <button className="btn btn-gold" onClick={() => window.location.href = '/dashboard/tables'}>Back to Tables</button>
+        <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+          <button className="btn btn-outline" onClick={printReceipt}><Printer size={16} /> Print Receipt</button>
+          <button className="btn btn-gold" onClick={() => window.location.href = '/dashboard/tables'}>Back to Tables</button>
+        </div>
       </div>
     )
   }
@@ -220,8 +222,8 @@ export default function PaymentPage() {
             </div>
 
             <button className="btn btn-gold btn-lg" style={{ width: '100%' }} onClick={handlePay} disabled={loading}>
-              <Printer size={18} />
-              {loading ? 'Processing...' : `Collect ${total.toFixed(2)} ETB & Print`}
+              <CheckCircle size={18} />
+              {loading ? 'Processing...' : `Collect ${total.toFixed(2)} ETB`}
             </button>
           </div>
         </div>
