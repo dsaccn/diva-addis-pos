@@ -239,9 +239,9 @@ export default function OfflineBanner() {
       message: `${pendingCount} unsaved change${pendingCount !== 1 ? 's' : ''} — syncing to cloud…`,
     },
     'online-syncing': {
-      bg: 'rgba(99, 102, 241, 0.1)',
-      border: 'rgba(99, 102, 241, 0.3)',
-      color: '#6366f1',
+      bg: 'rgba(67, 56, 202, 0.08)',
+      border: 'rgba(67, 56, 202, 0.25)',
+      color: '#4338ca',
       icon: <RefreshCw size={14} className="ob-spin" />,
       message: 'Syncing with cloud…',
     },

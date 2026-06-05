@@ -3,22 +3,22 @@
 @import "tailwindcss";
 
 :root {
-  --gold: #6366F1;
-  --gold-light: #38BDF8;
-  --gold-dark: #4338CA;
-  --black: #070A13;
-  --black-card: #0F1322;
-  --black-hover: #171E36;
-  --black-border: #202945;
-  --text-primary: #F8FAFC;
-  --text-secondary: #94A3B8;
-  --text-muted: #64748B;
-  --success: #059669;
-  --success-light: #34D399;
-  --warning: #D97706;
-  --warning-light: #FBBF24;
-  --danger: #DC2626;
-  --danger-light: #F87171;
+  --gold: #4338CA;
+  --gold-light: #6366F1;
+  --gold-dark: #312E81;
+  --black: #F1F5F9;
+  --black-card: #FFFFFF;
+  --black-hover: #E2E8F0;
+  --black-border: #CBD5E1;
+  --text-primary: #0F172A;
+  --text-secondary: #475569;
+  --text-muted: #94A3B8;
+  --success: #047857;
+  --success-light: #10B981;
+  --warning: #B45309;
+  --warning-light: #F59E0B;
+  --danger: #B91C1C;
+  --danger-light: #EF4444;
 }
 
 * {
@@ -69,7 +69,7 @@ html, body {
 .card-hover:hover {
   border-color: var(--gold);
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.15);
+  box-shadow: 0 8px 24px rgba(67, 56, 202, 0.12);
 }
 
 /* Buttons */
@@ -92,9 +92,9 @@ html, body {
 
 .btn-gold {
   background: linear-gradient(135deg, var(--gold-light), var(--gold));
-  color: var(--black);
+  color: white;
 }
-.btn-gold:hover { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3); }
+.btn-gold:hover { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 4px 16px rgba(67, 56, 202, 0.25); }
 .btn-gold:active { transform: translateY(0); }
 
 .btn-outline {
@@ -102,7 +102,7 @@ html, body {
   border: 1px solid var(--gold-dark);
   color: var(--gold);
 }
-.btn-outline:hover { background: rgba(99, 102, 241, 0.08); border-color: var(--gold); }
+.btn-outline:hover { background: rgba(67, 56, 202, 0.08); border-color: var(--gold); }
 
 .btn-danger {
   background: var(--danger);
@@ -171,11 +171,11 @@ html, body {
   letter-spacing: 0.5px;
 }
 
-.badge-free { background: rgba(82,183,136,0.15); color: var(--success-light); }
-.badge-occupied { background: rgba(244,162,97,0.15); color: var(--warning-light); }
-.badge-waiting { background: rgba(230,57,70,0.15); color: var(--danger-light); }
-.badge-open { background: rgba(99, 102, 241, 0.15); color: var(--gold); }
-.badge-paid { background: rgba(82,183,136,0.15); color: var(--success-light); }
+.badge-free { background: rgba(16, 185, 129, 0.12); color: var(--success); }
+.badge-occupied { background: rgba(245, 158, 11, 0.12); color: var(--warning); }
+.badge-waiting { background: rgba(239, 68, 68, 0.12); color: var(--danger); }
+.badge-open { background: rgba(67, 56, 202, 0.12); color: var(--gold); }
+.badge-paid { background: rgba(16, 185, 129, 0.12); color: var(--success); }
 .badge-cancelled { background: rgba(90,80,64,0.2); color: var(--text-muted); }
 
 /* Divider */
