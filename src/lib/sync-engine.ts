@@ -111,6 +111,232 @@ export async function pullFromCloud(): Promise<{ pulled: { orders: number; order
   try {
     const pg = getPool()
 
+    // ── Pull static metadata (User, Category, Ingredient, MenuItem, Recipe, Table) ──
+    try {
+      // 0. Users / Staff
+      const { rows: cloudUsers } = await pg.query(
+        `SELECT id, username, "passwordHash", "fullName", role, phone, active, "createdAt" FROM "User"`
+      )
+      const userIds = cloudUsers.map(u => u.id)
+
+      try {
+        await prisma.user.deleteMany({
+          where: { id: { notIn: userIds } }
+        })
+      } catch (e) {
+        console.warn('[Pull static] User delete warning:', String(e))
+      }
+
+      for (const u of cloudUsers) {
+        await prisma.user.upsert({
+          where: { id: u.id },
+          update: {
+            username: u.username,
+            passwordHash: u.passwordHash,
+            fullName: u.fullName,
+            role: u.role,
+            phone: u.phone,
+            active: Boolean(u.active),
+            createdAt: new Date(u.createdAt),
+          },
+          create: {
+            id: u.id,
+            username: u.username,
+            passwordHash: u.passwordHash,
+            fullName: u.fullName,
+            role: u.role,
+            phone: u.phone,
+            active: Boolean(u.active),
+            createdAt: new Date(u.createdAt),
+          },
+        })
+      }
+
+      // 1. Categories
+      const { rows: cloudCats } = await pg.query(
+        `SELECT id, name, type, "createdAt" FROM "Category"`
+      )
+      const catIds = cloudCats.map(c => c.id)
+      
+      try {
+        await prisma.category.deleteMany({
+          where: { id: { notIn: catIds } }
+        })
+      } catch (e) {
+        console.warn('[Pull static] Category delete warning:', String(e))
+      }
+
+      for (const c of cloudCats) {
+        await prisma.category.upsert({
+          where: { id: c.id },
+          update: { name: c.name, type: c.type, createdAt: new Date(c.createdAt) },
+          create: { id: c.id, name: c.name, type: c.type, createdAt: new Date(c.createdAt) },
+        })
+      }
+
+      // 2. Ingredients
+      const { rows: cloudIngs } = await pg.query(
+        `SELECT id, name, unit, quantity, "minThreshold", "createdAt" FROM "Ingredient"`
+      )
+      const ingIds = cloudIngs.map(i => i.id)
+
+      try {
+        await prisma.ingredient.deleteMany({
+          where: { id: { notIn: ingIds } }
+        })
+      } catch (e) {
+        console.warn('[Pull static] Ingredient delete warning:', String(e))
+      }
+
+      for (const i of cloudIngs) {
+        await prisma.ingredient.upsert({
+          where: { id: i.id },
+          update: { 
+            name: i.name, 
+            unit: i.unit, 
+            quantity: Number(i.quantity), 
+            minThreshold: Number(i.minThreshold), 
+            createdAt: new Date(i.createdAt) 
+          },
+          create: { 
+            id: i.id, 
+            name: i.name, 
+            unit: i.unit, 
+            quantity: Number(i.quantity), 
+            minThreshold: Number(i.minThreshold), 
+            createdAt: new Date(i.createdAt) 
+          },
+        })
+      }
+
+      // 3. MenuItems
+      const { rows: cloudItems } = await pg.query(
+        `SELECT id, "categoryId", name, description, price, available, "stockQuantity", "barQuantity", "costPrice", "lowStockThreshold", "parentItemId", "unitMultiplier", "createdAt" FROM "MenuItem"`
+      )
+      const itemIds = cloudItems.map(item => item.id)
+
+      try {
+        await prisma.menuItem.deleteMany({
+          where: { id: { notIn: itemIds } }
+        })
+      } catch (e) {
+        console.warn('[Pull static] MenuItem delete warning:', String(e))
+      }
+
+      // First pass: upsert with parentItemId = null to avoid self-referential foreign key constraint issues
+      for (const item of cloudItems) {
+        await prisma.menuItem.upsert({
+          where: { id: item.id },
+          update: {
+            categoryId: item.categoryId,
+            name: item.name,
+            description: item.description,
+            price: Number(item.price),
+            available: Boolean(item.available),
+            stockQuantity: Number(item.stockQuantity),
+            barQuantity: Number(item.barQuantity),
+            costPrice: Number(item.costPrice),
+            lowStockThreshold: Number(item.lowStockThreshold),
+            parentItemId: null,
+            unitMultiplier: Number(item.unitMultiplier),
+            createdAt: new Date(item.createdAt),
+          },
+          create: {
+            id: item.id,
+            categoryId: item.categoryId,
+            name: item.name,
+            description: item.description,
+            price: Number(item.price),
+            available: Boolean(item.available),
+            stockQuantity: Number(item.stockQuantity),
+            barQuantity: Number(item.barQuantity),
+            costPrice: Number(item.costPrice),
+            lowStockThreshold: Number(item.lowStockThreshold),
+            parentItemId: null,
+            unitMultiplier: Number(item.unitMultiplier),
+            createdAt: new Date(item.createdAt),
+          },
+        })
+      }
+
+      // Second pass: update parentItemId links
+      for (const item of cloudItems) {
+        if (item.parentItemId) {
+          await prisma.menuItem.update({
+            where: { id: item.id },
+            data: { parentItemId: item.parentItemId },
+          })
+        }
+      }
+
+      // 4. Recipes
+      const { rows: cloudRecipes } = await pg.query(
+        `SELECT id, "menuItemId", "ingredientId", quantity FROM "Recipe"`
+      )
+      const recipeIds = cloudRecipes.map(r => r.id)
+
+      try {
+        await prisma.recipe.deleteMany({
+          where: { id: { notIn: recipeIds } }
+        })
+      } catch (e) {
+        console.warn('[Pull static] Recipe delete warning:', String(e))
+      }
+
+      for (const r of cloudRecipes) {
+        await prisma.recipe.upsert({
+          where: { id: r.id },
+          update: {
+            menuItemId: r.menuItemId,
+            ingredientId: r.ingredientId,
+            quantity: Number(r.quantity),
+          },
+          create: {
+            id: r.id,
+            menuItemId: r.menuItemId,
+            ingredientId: r.ingredientId,
+            quantity: Number(r.quantity),
+          },
+        })
+      }
+
+      // 5. Tables
+      const { rows: cloudTables } = await pg.query(
+        `SELECT id, number, status, "mergedWithId", "createdAt" FROM "Table"`
+      )
+      const tableIds = cloudTables.map(t => t.id)
+
+      try {
+        await prisma.table.deleteMany({
+          where: { id: { notIn: tableIds } }
+        })
+      } catch (e) {
+        console.warn('[Pull static] Table delete warning:', String(e))
+      }
+
+      for (const t of cloudTables) {
+        await prisma.table.upsert({
+          where: { id: t.id },
+          update: {
+            number: t.number,
+            status: t.status,
+            mergedWithId: t.mergedWithId,
+            createdAt: new Date(t.createdAt),
+          },
+          create: {
+            id: t.id,
+            number: t.number,
+            status: t.status,
+            mergedWithId: t.mergedWithId,
+            createdAt: new Date(t.createdAt),
+          },
+        })
+      }
+    } catch (e) {
+      console.warn('[Pull static warning]', String(e))
+      errors.push(`Static sync warning: ${String(e)}`)
+    }
+
     // Fetch all OPEN orders from Neon
     const { rows: cloudOrders } = await pg.query(
       `SELECT id, "tableId", "waiterId", status, "createdAt", "updatedAt" FROM "Order" WHERE status = 'OPEN' ORDER BY "createdAt" DESC`
