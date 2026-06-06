@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { AlertTriangle, Plus, Minus, Pencil, Trash2, RefreshCw, Search } from 'lucide-react'
+import { AlertTriangle, Plus, Minus, Pencil, Trash2, RefreshCw, Search, Package, Beer, DollarSign } from 'lucide-react'
 
 interface Category { id: string; name: string; type: string }
 interface MenuItem { id: string; name: string; price: number; stockQuantity: number; barQuantity: number; costPrice: number; lowStockThreshold: number; available: boolean; category?: Category | null; parentItemId?: string | null; unitMultiplier: number; parentItem?: { id: string; name: string } | null }
@@ -203,6 +203,17 @@ export default function InventoryPage() {
   const lowDrinkCount = items.filter(i => i.barQuantity <= i.lowStockThreshold && i.category?.type === 'DRINK').length
   const lowIngCount = ingredients.filter(i => i.quantity <= i.minThreshold).length
 
+  // Calculations for total sums
+  const totalStoreItemsCount = items.filter(i => !i.parentItemId).length
+  const totalStoreQty = items.reduce((sum, item) => sum + (item.parentItemId ? 0 : item.stockQuantity), 0)
+  const totalStoreCostValue = items.reduce((sum, item) => sum + (item.parentItemId ? 0 : item.stockQuantity * (item.costPrice || 0)), 0)
+  const totalStoreSalesValue = items.reduce((sum, item) => sum + (item.parentItemId ? 0 : item.stockQuantity * item.price), 0)
+
+  const totalBarItemsCount = items.filter(i => i.category?.type === 'DRINK').length
+  const totalBarQty = items.reduce((sum, item) => sum + (item.category?.type === 'DRINK' ? item.barQuantity : 0), 0)
+  const totalBarCostValue = items.reduce((sum, item) => sum + (item.category?.type === 'DRINK' ? item.barQuantity * (item.costPrice || 0) : 0), 0)
+  const totalBarSalesValue = items.reduce((sum, item) => sum + (item.category?.type === 'DRINK' ? item.barQuantity * item.price : 0), 0)
+
   return (
     <div className="animate-fade-in">
       {/* Header */}
@@ -255,6 +266,66 @@ export default function InventoryPage() {
               <button className="btn btn-sm btn-outline" style={{ marginLeft: 'auto', borderColor: 'var(--danger-light)', color: 'var(--danger-light)' }} onClick={() => setFilterCat('low')}>View Low Stock</button>
             </div>
           )}
+
+          {/* Stock Summary Cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+            {/* Store Stock Card */}
+            <div className="card" style={{ background: 'linear-gradient(135deg, rgba(67, 56, 202, 0.06) 0%, rgba(67, 56, 202, 0.01) 100%)', border: '1px solid rgba(67, 56, 202, 0.15)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <h3 style={{ fontSize: '14px', fontWeight: '700', color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Package size={16} /> Store Stock Summary
+                  </h3>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', background: 'var(--black-hover)', padding: '2px 8px', borderRadius: '12px', fontWeight: '600' }}>
+                    {totalStoreItemsCount} Products
+                  </span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                  <div>
+                    <span style={{ fontSize: '10px', color: 'var(--text-secondary)', textTransform: 'uppercase', display: 'block', letterSpacing: '0.3px' }}>Total Quantity</span>
+                    <span style={{ fontSize: '20px', fontWeight: '700', color: 'var(--text-primary)' }}>{totalStoreQty.toLocaleString('en-ET')}</span>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '10px', color: 'var(--text-secondary)', textTransform: 'uppercase', display: 'block', letterSpacing: '0.3px' }}>Cost Value</span>
+                    <span style={{ fontSize: '20px', fontWeight: '700', color: 'var(--success-light)' }}>{totalStoreCostValue.toLocaleString('en-ET', { minimumFractionDigits: 1, maximumFractionDigits: 2 })} ETB</span>
+                  </div>
+                </div>
+              </div>
+              <div style={{ borderTop: '1px solid var(--black-border)', paddingTop: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Sales Value</span>
+                <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-primary)' }}>{totalStoreSalesValue.toLocaleString('en-ET', { minimumFractionDigits: 1, maximumFractionDigits: 2 })} ETB</span>
+              </div>
+            </div>
+
+            {/* Bar Stock Card */}
+            <div className="card" style={{ background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.06) 0%, rgba(16, 185, 129, 0.01) 100%)', border: '1px solid rgba(16, 185, 129, 0.15)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <h3 style={{ fontSize: '14px', fontWeight: '700', color: 'var(--success)', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Beer size={16} /> Bar Stock Summary
+                  </h3>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', background: 'var(--black-hover)', padding: '2px 8px', borderRadius: '12px', fontWeight: '600' }}>
+                    {totalBarItemsCount} Drinks
+                  </span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                  <div>
+                    <span style={{ fontSize: '10px', color: 'var(--text-secondary)', textTransform: 'uppercase', display: 'block', letterSpacing: '0.3px' }}>Total Quantity</span>
+                    <span style={{ fontSize: '20px', fontWeight: '700', color: 'var(--text-primary)' }}>{totalBarQty.toLocaleString('en-ET')}</span>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '10px', color: 'var(--text-secondary)', textTransform: 'uppercase', display: 'block', letterSpacing: '0.3px' }}>Cost Value</span>
+                    <span style={{ fontSize: '20px', fontWeight: '700', color: 'var(--success-light)' }}>{totalBarCostValue.toLocaleString('en-ET', { minimumFractionDigits: 1, maximumFractionDigits: 2 })} ETB</span>
+                  </div>
+                </div>
+              </div>
+              <div style={{ borderTop: '1px solid var(--black-border)', paddingTop: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Sales Value</span>
+                <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-primary)' }}>{totalBarSalesValue.toLocaleString('en-ET', { minimumFractionDigits: 1, maximumFractionDigits: 2 })} ETB</span>
+              </div>
+            </div>
+          </div>
+
           <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
               <button className={`btn btn-sm ${!filterCat ? 'btn-gold' : 'btn-outline'}`} onClick={() => setFilterCat('')}>All Items</button>
