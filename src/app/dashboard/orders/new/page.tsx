@@ -99,11 +99,11 @@ export default function NewOrderPage() {
   function generateTicketHTML(type: 'KITCHEN' | 'BAR' | 'CASHIER', tableNumber: string, waiterName: string, items: CartItem[]) {
     const now = new Date().toLocaleString('en-ET', { timeZone: 'Africa/Addis_Ababa' })
     return `
-      <div style="font-family:'Courier New',monospace;font-size:13px;width:300px;padding:16px;color:#000;background:#fff;">
+      <div style="font-family:'Courier New',monospace;font-size:13px;width:280px;padding:10px 15px;color:#000;background:#fff;box-sizing:border-box;">
         <div style="text-align:center;margin-bottom:8px;">
           <div style="font-size:16px;font-weight:bold;letter-spacing:2px;">DIVA ADDIS LOUNGE</div>
           <div style="font-size:10px;letter-spacing:1px;">Addis Ababa, Ethiopia</div>
-          <hr style="border-top:1px dashed #000;margin:8px 0;"/>
+          <hr style="border-top:1px dashed #000;border-bottom:none;border-left:none;border-right:none;margin:8px 0;"/>
           <div style="font-size:15px;font-weight:bold;border:2px solid #000;display:inline-block;padding:4px 12px;">
             ${type === 'KITCHEN' ? '🍳 KITCHEN COPY' : type === 'BAR' ? '🍹 BAR COPY' : '💰 CASHIER COPY'}
           </div>
@@ -113,7 +113,7 @@ export default function NewOrderPage() {
           <div><b>Waiter:</b> ${waiterName}</div>
           <div><b>Date:</b> ${now}</div>
         </div>
-        <hr style="border-top:1px dashed #000;margin:8px 0;"/>
+        <hr style="border-top:1px dashed #000;border-bottom:none;border-left:none;border-right:none;margin:8px 0;"/>
         <div>
           ${items.map(c => `
             <div style="margin-bottom:6px;">
@@ -125,7 +125,7 @@ export default function NewOrderPage() {
             </div>
           `).join('')}
         </div>
-        <hr style="border-top:1px dashed #000;margin:8px 0;"/>
+        <hr style="border-top:1px dashed #000;border-bottom:none;border-left:none;border-right:none;margin:8px 0;"/>
         ${type === 'CASHIER' ? `<div style="text-align:right;font-weight:bold;">SUBTOTAL: ${subtotal.toFixed(2)} ETB</div>` : ''}
         <div style="text-align:center;margin-top:8px;font-size:10px;">— Thank you —</div>
       </div>
@@ -175,15 +175,27 @@ export default function NewOrderPage() {
     // Print tickets
     const ticketWindow = window.open('', '_blank', 'width=400,height=700')
     if (ticketWindow) {
-      let ticketHTML = '<html><head><title>Tickets</title></head><body style="margin:0;padding:20px;background:#f5f5f5;">'
+      let ticketHTML = `<html>
+        <head>
+          <title>Tickets</title>
+          <style>
+            @page { margin: 0; }
+            *, *:before, *:after { box-sizing: border-box; }
+            body { margin: 0; padding: 0; background: #fff; }
+            @media print {
+              hr.ticket-separator { border-top: 2px dashed #000; border-bottom: none; border-left: none; border-right: none; margin: 20px 0; page-break-after: always; }
+            }
+          </style>
+        </head>
+        <body>`
 
       if (foodItems.length > 0) {
         ticketHTML += generateTicketHTML('KITCHEN', tableNumber, session.fullName, foodItems)
-        ticketHTML += '<hr style="border:2px dashed #ccc;margin:20px 0;"/>'
+        ticketHTML += '<hr class="ticket-separator"/>'
       }
       if (drinkItems.length > 0) {
         ticketHTML += generateTicketHTML('BAR', tableNumber, session.fullName, drinkItems)
-        ticketHTML += '<hr style="border:2px dashed #ccc;margin:20px 0;"/>'
+        ticketHTML += '<hr class="ticket-separator"/>'
       }
       ticketHTML += generateTicketHTML('CASHIER', tableNumber, session.fullName, cart)
       ticketHTML += '</body></html>'

@@ -55,20 +55,30 @@ export default function OrderDetailPage() {
     const win = window.open('', '_blank', 'width=350,height=500')
     if (!win) return
     const now = new Date().toLocaleString('en-ET', { timeZone: 'Africa/Addis_Ababa' })
-    win.document.write(`<html><body style="font-family:Courier New,monospace;padding:16px;width:280px;">
+    win.document.write(`<html>
+      <head>
+        <title>Cancellation Ticket</title>
+        <style>
+          @page { margin: 0; }
+          *, *:before, *:after { box-sizing: border-box; }
+          body { margin: 0; padding: 10px 15px; font-family: Courier New, monospace; width: 280px; font-size: 13px; color: #000; background: #fff; }
+          hr { border-top: 1px dashed #000; border-bottom: none; border-left: none; border-right: none; margin: 8px 0; }
+        </style>
+      </head>
+      <body>
       <div style="text-align:center;">
         <b style="font-size:15px;letter-spacing:2px;">DIVA ADDIS LOUNGE</b><br/>
-        <hr style="border-top:1px dashed #000;margin:8px 0;"/>
+        <hr/>
         <b style="font-size:16px;border:2px solid red;padding:4px 12px;color:red;">⚠ CANCELLATION</b>
       </div>
       <div style="margin:12px 0;">
         <b>Table:</b> ${tableNumber}<br/>
         <b>Date:</b> ${now}
       </div>
-      <hr style="border-top:1px dashed #000;margin:8px 0;"/>
+      <hr/>
       <div style="font-size:14px;"><b>CANCEL: ${qty}x ${item.menuItem.name}</b></div>
       <div style="font-size:12px;margin-top:8px;color:#555;">Reason: ${cancelReason}</div>
-      <hr style="border-top:1px dashed #000;margin:8px 0;"/>
+      <hr/>
       <div style="text-align:center;font-size:11px;">— Diva Addis Lounge —</div>
     </body></html>`)
     win.document.close()
@@ -113,11 +123,21 @@ export default function OrderDetailPage() {
     const win = window.open('', '_blank', 'width=400,height=700')
     if (!win) return
     const now = new Date().toLocaleString('en-ET', { timeZone: 'Africa/Addis_Ababa' })
-    win.document.write(`<html><body style="font-family:Courier New,monospace;padding:20px;width:300px;">
+    win.document.write(`<html>
+      <head>
+        <title>Receipt</title>
+        <style>
+          @page { margin: 0; }
+          *, *:before, *:after { box-sizing: border-box; }
+          body { margin: 0; padding: 10px 15px; font-family: Courier New, monospace; width: 280px; font-size: 13px; color: #000; background: #fff; }
+          hr { border-top: 1px dashed #000; border-bottom: none; border-left: none; border-right: none; margin: 8px 0; }
+        </style>
+      </head>
+      <body>
       <div style="text-align:center;margin-bottom:10px;">
         <b style="font-size:16px;letter-spacing:2px;">DIVA ADDIS LOUNGE</b><br/>
         <span style="font-size:11px;">Addis Ababa, Ethiopia</span><br/>
-        <hr style="border-top:1px dashed #000;margin:8px 0;"/>
+        <hr/>
         <b>RECEIPT</b>
       </div>
       <div style="margin-bottom:10px;">
@@ -126,20 +146,20 @@ export default function OrderDetailPage() {
         <b>Cashier:</b> ${order.payment?.cashier?.fullName || '-'}<br/>
         <b>Date:</b> ${now}
       </div>
-      <hr style="border-top:1px dashed #000;margin:8px 0;"/>
+      <hr/>
       ${order.orderItems.filter(i => i.status !== 'CANCELLED').map(i => `
         <div style="display:flex;justify-content:space-between;">
           <span>${i.quantity}x ${i.menuItem.name}</span>
           <span>${(i.menuItem.price * i.quantity).toFixed(2)} ETB</span>
         </div>
       `).join('')}
-      <hr style="border-top:1px dashed #000;margin:8px 0;"/>
+      <hr/>
       ${order.payment?.discount ? `<div style="display:flex;justify-content:space-between;"><span>Discount</span><span>-${order.payment.discount.toFixed(2)} ETB</span></div>` : ''}
       <div style="display:flex;justify-content:space-between;font-weight:bold;font-size:15px;">
         <span>TOTAL</span><span>${(order.payment?.amount || total).toFixed(2)} ETB</span>
       </div>
       <div style="margin-top:8px;"><b>Payment:</b> ${order.payment?.method || '-'}</div>
-      <hr style="border-top:1px dashed #000;margin:8px 0;"/>
+      <hr/>
       <div style="text-align:center;font-size:11px;">Thank you for visiting Diva Addis Lounge!</div>
     </body></html>`)
     win.document.close()

@@ -75,32 +75,42 @@ export default function PaymentPage() {
     const now = new Date().toLocaleString('en-ET', { timeZone: 'Africa/Addis_Ababa' })
     const win = window.open('', '_blank', 'width=400,height=700')
     if (!win) return
-    win.document.write(`<html><body style="font-family:Courier New,monospace;padding:20px;width:300px;">
+    win.document.write(`<html>
+      <head>
+        <title>Receipt</title>
+        <style>
+          @page { margin: 0; }
+          *, *:before, *:after { box-sizing: border-box; }
+          body { margin: 0; padding: 10px 15px; font-family: Courier New, monospace; width: 280px; font-size: 13px; color: #000; background: #fff; }
+          hr { border-top: 1px dashed #000; border-bottom: none; border-left: none; border-right: none; margin: 8px 0; }
+        </style>
+      </head>
+      <body>
       <div style="text-align:center;margin-bottom:10px;">
         <b style="font-size:16px;letter-spacing:2px;">DIVA ADDIS LOUNGE</b><br/>
         <span style="font-size:11px;">Addis Ababa, Ethiopia</span>
-        <hr style="border-top:1px dashed #000;margin:8px 0;"/>
+        <hr/>
         <b>RECEIPT</b>
       </div>
       <div style="margin-bottom:10px;font-size:13px;">
         <b>Table:</b> ${selectedOrder.table.number}<br/>
         <b>Waiter:</b> ${selectedOrder.waiter.fullName}<br/>
-        <b>Cashier:</b> ${session?.fullName}<br/>
+        <b>Cashier:</b> ${session?.fullName || '-'}<br/>
         <b>Date:</b> ${now}
       </div>
-      <hr style="border-top:1px dashed #000;margin:8px 0;"/>
+      <hr/>
       ${activeItems.map(i => `<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">
         <span>${i.quantity}x ${i.menuItem.name}</span>
         <span>${(i.menuItem.price * i.quantity).toFixed(2)} ETB</span>
       </div>`).join('')}
-      <hr style="border-top:1px dashed #000;margin:8px 0;"/>
+      <hr/>
       <div style="display:flex;justify-content:space-between;"><span>Subtotal</span><span>${subtotal.toFixed(2)} ETB</span></div>
       ${discountAmt > 0 ? `<div style="display:flex;justify-content:space-between;"><span>Discount</span><span>-${discountAmt.toFixed(2)} ETB</span></div>` : ''}
       <div style="display:flex;justify-content:space-between;font-weight:bold;font-size:15px;margin-top:4px;">
         <span>TOTAL</span><span>${total.toFixed(2)} ETB</span>
       </div>
       <div style="margin-top:8px;font-size:13px;"><b>Paid via:</b> ${method}</div>
-      <hr style="border-top:1px dashed #000;margin:8px 0;"/>
+      <hr/>
       <div style="text-align:center;font-size:11px;">Thank you for visiting Diva Addis Lounge!<br/>እናመሰግናለን!</div>
     </body></html>`)
     win.document.close()
