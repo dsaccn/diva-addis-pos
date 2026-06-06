@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Receipt Test Print</title>
+  <style>
+    @page { margin: 0; }
+    *, *:before, *:after { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 10px 15px;
+      font-family: Courier New, monospace;
+      width: 100%;
+      font-size: 13px;
+      color: #000;
+      background: #fff;
+    }
+    hr {
+      border-top: 1px dashed #000;
+      border-bottom: none;
+      border-left: none;
+      border-right: none;
+      margin: 8px 0;
+    }
+    .no-print-btn {
+      display: block;
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 20px;
+      background: #4338CA;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-family: sans-serif;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      text-align: center;
+    }
+    @media print {
+      .no-print-btn {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <button class="no-print-btn" onclick="window.print()">Click Here to Print Test</button>
+
+  <div style="text-align:center;margin-bottom:10px;">
+    <b style="font-size:16px;letter-spacing:2px;">DIVA ADDIS LOUNGE</b><br/>
+    <span style="font-size:11px;">Addis Ababa, Ethiopia</span>
+    <hr/>
+    <b>RECEIPT (TEST)</b>
+  </div>
+  <div style="margin-bottom:10px;font-size:13px;">
+    <b>Table:</b> 12<br/>
+    <b>Waiter:</b> Dawit Kebede<br/>
+    <b>Cashier:</b> cashier_user<br/>
+    <b>Date:</b> 6/6/2026, 2:48 PM
+  </div>
+  <hr/>
+  <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">
+    <span>2x Draft Beer</span>
+    <span>160.00 ETB</span>
+  </div>
+  <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">
+    <span>1x Special Kitfo</span>
+    <span>450.00 ETB</span>
+  </div>
+  <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">
+    <span>1x Coca Cola</span>
+    <span>50.00 ETB</span>
+  </div>
+  <hr/>
+  <div style="display:flex;justify-content:space-between;"><span>Subtotal</span><span>660.00 ETB</span></div>
+  <div style="display:flex;justify-content:space-between;font-weight:bold;font-size:15px;margin-top:4px;">
+    <span>TOTAL</span><span>660.00 ETB</span>
+  </div>
+  <div style="margin-top:8px;font-size:13px;"><b>Paid via:</b> Cash</div>
+  <hr/>
+  <div style="text-align:center;font-size:11px;">Thank you for visiting Diva Addis Lounge!<br/>እናመሰግናለን!</div>
+</body>
+</html>

@@ -99,7 +99,7 @@ export default function NewOrderPage() {
   function generateTicketHTML(type: 'KITCHEN' | 'BAR' | 'CASHIER', tableNumber: string, waiterName: string, items: CartItem[]) {
     const now = new Date().toLocaleString('en-ET', { timeZone: 'Africa/Addis_Ababa' })
     return `
-      <div style="font-family:'Courier New',monospace;font-size:13px;width:280px;padding:10px 15px;color:#000;background:#fff;box-sizing:border-box;">
+      <div style="font-family:'Courier New',monospace;font-size:13px;width:100%;padding:10px 15px;color:#000;background:#fff;box-sizing:border-box;">
         <div style="text-align:center;margin-bottom:8px;">
           <div style="font-size:16px;font-weight:bold;letter-spacing:2px;">DIVA ADDIS LOUNGE</div>
           <div style="font-size:10px;letter-spacing:1px;">Addis Ababa, Ethiopia</div>

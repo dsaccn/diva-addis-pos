@@ -61,7 +61,7 @@ export default function OrderDetailPage() {
         <style>
           @page { margin: 0; }
           *, *:before, *:after { box-sizing: border-box; }
-          body { margin: 0; padding: 10px 15px; font-family: Courier New, monospace; width: 280px; font-size: 13px; color: #000; background: #fff; }
+          body { margin: 0; padding: 10px 15px; font-family: Courier New, monospace; width: 100%; font-size: 13px; color: #000; background: #fff; }
           hr { border-top: 1px dashed #000; border-bottom: none; border-left: none; border-right: none; margin: 8px 0; }
         </style>
       </head>
@@ -129,7 +129,7 @@ export default function OrderDetailPage() {
         <style>
           @page { margin: 0; }
           *, *:before, *:after { box-sizing: border-box; }
-          body { margin: 0; padding: 10px 15px; font-family: Courier New, monospace; width: 280px; font-size: 13px; color: #000; background: #fff; }
+          body { margin: 0; padding: 10px 15px; font-family: Courier New, monospace; width: 100%; font-size: 13px; color: #000; background: #fff; }
           hr { border-top: 1px dashed #000; border-bottom: none; border-left: none; border-right: none; margin: 8px 0; }
         </style>
       </head>
