@@ -181,7 +181,7 @@ export default function NewOrderPage() {
           <style>
             @page { margin: 0; }
             *, *:before, *:after { box-sizing: border-box; }
-            body { margin: 0; padding: 0; background: #fff; }
+            body { margin: 0; padding: 0; background: #fff; font-weight: bold; }
             @media print {
               hr.ticket-separator { border-top: 2px dashed #000; border-bottom: none; border-left: none; border-right: none; margin: 20px 0; page-break-after: always; }
             }
