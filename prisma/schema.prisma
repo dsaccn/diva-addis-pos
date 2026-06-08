@@ -47,11 +47,12 @@ model MenuItem {
   unitMultiplier    Float    @default(1) // How many parent units this item equals (e.g. 1.5)
   createdAt         DateTime @default(now())
 
-  category   Category?   @relation(fields: [categoryId], references: [id])
-  orderItems OrderItem[]
-  recipes    Recipe[]
-  parentItem MenuItem?   @relation("UnitLink", fields: [parentItemId], references: [id], onDelete: SetNull)
-  childItems MenuItem[]  @relation("UnitLink")
+  category       Category?       @relation(fields: [categoryId], references: [id])
+  orderItems     OrderItem[]
+  recipes        Recipe[]
+  parentItem     MenuItem?       @relation("UnitLink", fields: [parentItemId], references: [id], onDelete: SetNull)
+  childItems     MenuItem[]      @relation("UnitLink")
+  staffMenuItems StaffMenuItem[]
 }
 
 model Table {
@@ -169,4 +170,49 @@ model InventoryLog {
   userName    String
   createdAt   DateTime @default(now())
   pendingSync Boolean  @default(true)
+}
+
+model StaffMember {
+  id        String      @id @default(cuid())
+  name      String
+  role      String      // e.g. Waiter, Chef, Cashier, Cleaner
+  shift     String      @default("Morning") // Morning, Afternoon, Night
+  active    Boolean     @default(true)
+  createdAt DateTime    @default(now())
+
+  meals     StaffMeal[]
+}
+
+model StaffMenuItem {
+  id               String          @id @default(cuid())
+  name             String
+  mealType         String          // BREAKFAST, LUNCH, DINNER
+  linkedMenuItemId String?
+  createdAt        DateTime        @default(now())
+
+  linkedMenuItem   MenuItem?       @relation(fields: [linkedMenuItemId], references: [id], onDelete: SetNull)
+  mealItems        StaffMealItem[]
+}
+
+model StaffMeal {
+  id            String          @id @default(cuid())
+  staffMemberId String
+  mealType      String          // BREAKFAST, LUNCH, DINNER
+  servedAt      DateTime        @default(now())
+  createdAt     DateTime        @default(now())
+  pendingSync   Boolean         @default(true)
+
+  staffMember   StaffMember     @relation(fields: [staffMemberId], references: [id])
+  items         StaffMealItem[]
+}
+
+model StaffMealItem {
+  id              String        @id @default(cuid())
+  staffMealId     String
+  staffMenuItemId String
+  quantity        Int           @default(1)
+  pendingSync     Boolean       @default(true)
+
+  staffMeal       StaffMeal     @relation(fields: [staffMealId], references: [id], onDelete: Cascade)
+  staffMenuItem   StaffMenuItem @relation(fields: [staffMenuItemId], references: [id])
 }

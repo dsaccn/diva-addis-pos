@@ -172,38 +172,55 @@ export default function NewOrderPage() {
       }
     }
 
-    // Print tickets
-    const ticketWindow = window.open('', '_blank', 'width=400,height=700')
-    if (ticketWindow) {
-      let ticketHTML = `<html>
-        <head>
-          <title>Tickets</title>
-          <style>
-            @page { margin: 0; }
-            *, *:before, *:after { box-sizing: border-box; }
-            body { margin: 0; padding: 0; background: #fff; font-weight: bold; }
-            @media print {
-              hr.ticket-separator { border-top: 2px dashed #000; border-bottom: none; border-left: none; border-right: none; margin: 20px 0; page-break-after: always; }
-            }
-          </style>
-        </head>
-        <body>`
+    // Print tickets directly via hidden iframe (no new window)
+    let ticketHTML = `<html>
+      <head>
+        <title>Tickets</title>
+        <style>
+          @page { margin: 0; }
+          *, *:before, *:after { box-sizing: border-box; }
+          body { margin: 0; padding: 0; background: #fff; font-weight: bold; }
+          @media print {
+            hr.ticket-separator { border-top: 2px dashed #000; border-bottom: none; border-left: none; border-right: none; margin: 20px 0; page-break-after: always; }
+          }
+        </style>
+      </head>
+      <body>`
 
-      if (foodItems.length > 0) {
-        ticketHTML += generateTicketHTML('KITCHEN', tableNumber, session.fullName, foodItems)
-        ticketHTML += '<hr class="ticket-separator"/>'
-      }
-      if (drinkItems.length > 0) {
-        ticketHTML += generateTicketHTML('BAR', tableNumber, session.fullName, drinkItems)
-        ticketHTML += '<hr class="ticket-separator"/>'
-      }
-      ticketHTML += generateTicketHTML('CASHIER', tableNumber, session.fullName, cart)
-      ticketHTML += '</body></html>'
+    if (foodItems.length > 0) {
+      ticketHTML += generateTicketHTML('KITCHEN', tableNumber, session.fullName, foodItems)
+      ticketHTML += '<hr class="ticket-separator"/>'
+    }
+    if (drinkItems.length > 0) {
+      ticketHTML += generateTicketHTML('BAR', tableNumber, session.fullName, drinkItems)
+      ticketHTML += '<hr class="ticket-separator"/>'
+    }
+    ticketHTML += generateTicketHTML('CASHIER', tableNumber, session.fullName, cart)
+    ticketHTML += '</body></html>'
 
-      ticketWindow.document.write(ticketHTML)
-      ticketWindow.document.close()
-      ticketWindow.focus()
-      setTimeout(() => { ticketWindow.print() }, 500)
+    // Create a hidden iframe, write the ticket content, and print from it
+    const printFrame = document.createElement('iframe')
+    printFrame.style.position = 'fixed'
+    printFrame.style.top = '-10000px'
+    printFrame.style.left = '-10000px'
+    printFrame.style.width = '0'
+    printFrame.style.height = '0'
+    printFrame.style.border = 'none'
+    document.body.appendChild(printFrame)
+
+    const frameDoc = printFrame.contentDocument || printFrame.contentWindow?.document
+    if (frameDoc) {
+      frameDoc.open()
+      frameDoc.write(ticketHTML)
+      frameDoc.close()
+      // Wait for content to render, then print
+      setTimeout(() => {
+        printFrame.contentWindow?.print()
+        // Clean up the iframe after printing
+        setTimeout(() => {
+          document.body.removeChild(printFrame)
+        }, 1000)
+      }, 300)
     }
 
     setLoading(false)
