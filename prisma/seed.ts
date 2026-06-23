@@ -90,6 +90,40 @@ async function main() {
   }
   console.log('✅ Tables created:', tableNumbers.join(', '))
 
+  // Staff Members
+  const sampleStaff = [
+    { id: 'sm1', name: 'Abebe Bekele', role: 'Waiter', shift: 'Morning', active: true },
+    { id: 'sm2', name: 'Chala Kebede', role: 'Chef', shift: 'Afternoon', active: true },
+    { id: 'sm3', name: 'Aster Awoke', role: 'Cashier', shift: 'Morning', active: true },
+    { id: 'sm4', name: 'Marta Alemu', role: 'Cleaner', shift: 'Night', active: true },
+  ]
+  for (const staff of sampleStaff) {
+    await prisma.staffMember.upsert({
+      where: { id: staff.id },
+      update: {},
+      create: staff
+    })
+  }
+  console.log('✅ Staff Members seeded')
+
+  // Staff Menu Items
+  const sampleStaffMenuItems = [
+    { id: 'smi1', name: 'Scrambled Eggs with Bread', mealType: 'BREAKFAST' },
+    { id: 'smi2', name: 'Shakshuka', mealType: 'BREAKFAST' },
+    { id: 'smi3', name: 'Beef Tibs with Injera', mealType: 'LUNCH' },
+    { id: 'smi4', name: 'Shiro Wat with Injera', mealType: 'LUNCH' },
+    { id: 'smi5', name: 'Lentil Soup', mealType: 'DINNER' },
+    { id: 'smi6', name: 'Grilled Chicken with Rice', mealType: 'DINNER' },
+  ]
+  for (const item of sampleStaffMenuItems) {
+    await prisma.staffMenuItem.upsert({
+      where: { id: item.id },
+      update: {},
+      create: item
+    })
+  }
+  console.log('✅ Staff Menu Items seeded')
+
   console.log('\n🎉 Seed complete! Login with:')
   console.log('   Admin:   admin / admin123')
   console.log('   Manager: manager / manager123')

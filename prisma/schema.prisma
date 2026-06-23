@@ -173,12 +173,13 @@ model InventoryLog {
 }
 
 model StaffMember {
-  id        String      @id @default(cuid())
-  name      String
-  role      String      // e.g. Waiter, Chef, Cashier, Cleaner
-  shift     String      @default("Morning") // Morning, Afternoon, Night
-  active    Boolean     @default(true)
-  createdAt DateTime    @default(now())
+  id          String      @id @default(cuid())
+  name        String
+  role        String      // e.g. Waiter, Chef, Cashier, Cleaner
+  shift       String      @default("Morning") // Morning, Afternoon, Night
+  active      Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  pendingSync Boolean     @default(true)
 
   meals     StaffMeal[]
 }
@@ -189,9 +190,38 @@ model StaffMenuItem {
   mealType         String          // BREAKFAST, LUNCH, DINNER
   linkedMenuItemId String?
   createdAt        DateTime        @default(now())
+  pendingSync      Boolean         @default(true)
 
   linkedMenuItem   MenuItem?       @relation(fields: [linkedMenuItemId], references: [id], onDelete: SetNull)
   mealItems        StaffMealItem[]
+  recipes          StaffRecipe[]
+}
+
+// Raw-ingredient stock for the staff kitchen — kept separate from the main
+// Ingredient/Recipe inventory. Admin-only. Auto-deducted when a staff meal is logged.
+model StaffIngredient {
+  id           String        @id @default(cuid())
+  name         String
+  unit         String        // grams, kg, pieces, liters, ml
+  quantity     Float         @default(0)
+  minThreshold Float         @default(0)
+  createdAt    DateTime      @default(now())
+  pendingSync  Boolean       @default(true)
+
+  recipes      StaffRecipe[]
+}
+
+model StaffRecipe {
+  id                String          @id @default(cuid())
+  staffMenuItemId   String
+  staffIngredientId String
+  quantity          Float           // amount of ingredient consumed per 1 serving
+  pendingSync       Boolean         @default(true)
+
+  staffMenuItem     StaffMenuItem   @relation(fields: [staffMenuItemId], references: [id], onDelete: Cascade)
+  staffIngredient   StaffIngredient @relation(fields: [staffIngredientId], references: [id], onDelete: Cascade)
+
+  @@unique([staffMenuItemId, staffIngredientId])
 }
 
 model StaffMeal {
