@@ -173,12 +173,13 @@ model InventoryLog {
 }
 
 model StaffMember {
-  id        String      @id @default(cuid())
-  name      String
-  role      String
-  shift     String      @default("Morning")
-  active    Boolean     @default(true)
-  createdAt DateTime    @default(now())
+  id          String      @id @default(cuid())
+  name        String
+  role        String
+  shift       String      @default("Morning")
+  active      Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  pendingSync Boolean     @default(false)
 
   meals     StaffMeal[]
 }
@@ -189,9 +190,36 @@ model StaffMenuItem {
   mealType         String
   linkedMenuItemId String?
   createdAt        DateTime        @default(now())
+  pendingSync      Boolean         @default(false)
 
   linkedMenuItem   MenuItem?       @relation(fields: [linkedMenuItemId], references: [id], onDelete: SetNull)
   mealItems        StaffMealItem[]
+  recipes          StaffRecipe[]
+}
+
+model StaffIngredient {
+  id           String        @id @default(cuid())
+  name         String
+  unit         String
+  quantity     Float         @default(0)
+  minThreshold Float         @default(0)
+  createdAt    DateTime      @default(now())
+  pendingSync  Boolean       @default(false)
+
+  recipes      StaffRecipe[]
+}
+
+model StaffRecipe {
+  id                String          @id @default(cuid())
+  staffMenuItemId   String
+  staffIngredientId String
+  quantity          Float
+  pendingSync       Boolean         @default(false)
+
+  staffMenuItem     StaffMenuItem   @relation(fields: [staffMenuItemId], references: [id], onDelete: Cascade)
+  staffIngredient   StaffIngredient @relation(fields: [staffIngredientId], references: [id], onDelete: Cascade)
+
+  @@unique([staffMenuItemId, staffIngredientId])
 }
 
 model StaffMeal {

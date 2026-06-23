@@ -542,7 +542,6 @@ export default function StaffMealPanel({ from, to }: { from: string; to: string 
   };
 
   const isAdminOrManager = role === 'ADMIN' || role === 'MANAGER';
-  const isAdmin = role === 'ADMIN';
 
   return (
     <div className="card" style={{ background: 'var(--black-card)', border: '1px solid var(--black-border)', marginTop: '24px', padding: 0 }}>
@@ -578,7 +577,7 @@ export default function StaffMealPanel({ from, to }: { from: string; to: string 
               </button>
             </>
           )}
-          {isAdmin && (
+          {isAdminOrManager && (
             <button
               className={`btn btn-sm ${activeTab === 'inventory' ? 'btn-gold' : 'btn-ghost'}`}
               onClick={() => setActiveTab('inventory')}
@@ -603,7 +602,7 @@ export default function StaffMealPanel({ from, to }: { from: string; to: string 
               <Plus size={14} /> Add Menu Item
             </button>
           )}
-          {activeTab === 'inventory' && isAdmin && (
+          {activeTab === 'inventory' && isAdminOrManager && (
             <button className="btn btn-gold btn-sm" onClick={openAddIngredient}>
               <Plus size={14} /> Add Ingredient
             </button>
@@ -814,8 +813,8 @@ export default function StaffMealPanel({ from, to }: { from: string; to: string 
           </div>
         )}
 
-        {/* Tab 4: INVENTORY (admin only) */}
-        {activeTab === 'inventory' && isAdmin && (
+        {/* Tab 4: INVENTORY (admin + manager) */}
+        {activeTab === 'inventory' && isAdminOrManager && (
           <div>
             {loadingInventory ? (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '60px', color: 'var(--text-muted)', gap: '10px' }}>
