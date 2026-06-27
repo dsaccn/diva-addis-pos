@@ -8,13 +8,16 @@ const SECRET = new TextEncoder().encode(
 
 const roleRoutes: Record<string, string[]> = {
   '/dashboard/admin': ['ADMIN'],
+  // staff-meals MUST come before /dashboard/staff so startsWith doesn't
+  // accidentally match staff-meals against the stricter /dashboard/staff rule.
+  '/dashboard/staff-meals': ['ADMIN', 'MANAGER', 'WAITER', 'CASHIER'],
   '/dashboard/staff': ['ADMIN'],
   '/dashboard/menu': ['ADMIN'],
   '/dashboard/reports': ['ADMIN', 'MANAGER'],
   '/dashboard/inventory': ['ADMIN', 'MANAGER'],
   '/dashboard/tables': ['ADMIN', 'MANAGER', 'WAITER', 'CASHIER'],
   '/dashboard/orders': ['ADMIN', 'MANAGER', 'WAITER', 'CASHIER'],
-  '/dashboard/payment': ['ADMIN', 'MANAGER', 'CASHIER'],
+  '/dashboard/payment': ['ADMIN', 'MANAGER', 'WAITER', 'CASHIER'],
 }
 
 export async function middleware(request: NextRequest) {
