@@ -24,8 +24,35 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-echo [1/3] Building the production app (this may take 2-3 minutes)...
+echo [1/3] Checking dependencies and building the production app...
 cd /d "%POS_DIR%"
+
+where npm >nul 2>&1
+if %errorlevel% neq 0 (
+    echo.
+    echo ERROR: Node.js / NPM was not found on this computer.
+    echo.
+    echo Troubleshooting:
+    echo 1. Make sure you have downloaded and installed Node.js from: https://nodejs.org
+    echo 2. If you JUST installed Node.js, you MUST close this Command Prompt window
+    echo    and run setup-autostart.bat again so Windows can load the new path.
+    echo 3. If it still fails, restart the computer.
+    echo.
+    pause
+    exit /b 1
+)
+
+if not exist "node_modules\" (
+    echo node_modules not found. Installing dependencies (this may take 1-2 minutes)...
+    call npm install
+    if %errorlevel% neq 0 (
+        echo ERROR: npm install failed. Make sure you have a working internet connection.
+        pause
+        exit /b 1
+    )
+)
+
+echo Building the Next.js production app (this may take 2-3 minutes)...
 call npm run build
 if %errorlevel% neq 0 (
     echo ERROR: Build failed. Fix any errors above and try again.

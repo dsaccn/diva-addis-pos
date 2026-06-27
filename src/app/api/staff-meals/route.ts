@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/session'
 import { prisma } from '@/lib/prisma'
+import { backgroundSync } from '@/lib/sync-engine'
 
 export async function GET(req: Request) {
   const session = await getSession()
@@ -73,9 +74,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const session = await getSession()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (session.role !== 'ADMIN' && session.role !== 'MANAGER') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
+
 
   try {
     const { staffMemberId, mealType, staffMenuItemId, servedAt } = await req.json()
@@ -145,6 +144,7 @@ export async function POST(req: Request) {
       }
     })
 
+    backgroundSync()
     return NextResponse.json(newMeal)
   } catch (err) {
     console.error('[POST /api/staff-meals]', err)

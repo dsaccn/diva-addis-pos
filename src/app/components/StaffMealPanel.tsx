@@ -91,7 +91,13 @@ export default function StaffMealPanel({ from, to }: { from: string; to: string 
       .then(res => res.ok ? res.json() : null)
       .then(data => {
         if (data && data.role) {
-          setRole(data.role);
+          const userRole = data.role;
+          setRole(userRole);
+          if (userRole === 'MANAGER') {
+            setActiveTab(prev => (prev === 'roster' || prev === 'inventory' ? 'logs' : prev));
+          } else if (userRole === 'WAITER' || userRole === 'CASHIER') {
+            setActiveTab('logs');
+          }
         }
       })
       .catch(err => console.error('Error fetching session:', err));
@@ -541,7 +547,10 @@ export default function StaffMealPanel({ from, to }: { from: string; to: string 
     setTimeout(() => win.print(), 300);
   };
 
-  const isAdminOrManager = role === 'ADMIN' || role === 'MANAGER';
+  const canAddMeal = ['ADMIN', 'MANAGER', 'WAITER', 'CASHIER'].includes(role);
+  const canAccessFoodMenu = ['ADMIN', 'MANAGER'].includes(role);
+  const canAccessRoster = role === 'ADMIN';
+  const canAccessInventory = role === 'ADMIN';
 
   return (
     <div className="card" style={{ background: 'var(--black-card)', border: '1px solid var(--black-border)', marginTop: '24px', padding: 0 }}>
@@ -561,23 +570,23 @@ export default function StaffMealPanel({ from, to }: { from: string; to: string 
           >
             Meal Logs
           </button>
-          {isAdminOrManager && (
-            <>
-              <button 
-                className={`btn btn-sm ${activeTab === 'roster' ? 'btn-gold' : 'btn-ghost'}`} 
-                onClick={() => setActiveTab('roster')}
-              >
-                Staff Roster
-              </button>
-              <button
-                className={`btn btn-sm ${activeTab === 'menu' ? 'btn-gold' : 'btn-ghost'}`}
-                onClick={() => setActiveTab('menu')}
-              >
-                Food Menu
-              </button>
-            </>
+          {canAccessRoster && (
+            <button 
+              className={`btn btn-sm ${activeTab === 'roster' ? 'btn-gold' : 'btn-ghost'}`} 
+              onClick={() => setActiveTab('roster')}
+            >
+              Staff Roster
+            </button>
           )}
-          {isAdminOrManager && (
+          {canAccessFoodMenu && (
+            <button
+              className={`btn btn-sm ${activeTab === 'menu' ? 'btn-gold' : 'btn-ghost'}`}
+              onClick={() => setActiveTab('menu')}
+            >
+              Food Menu
+            </button>
+          )}
+          {canAccessInventory && (
             <button
               className={`btn btn-sm ${activeTab === 'inventory' ? 'btn-gold' : 'btn-ghost'}`}
               onClick={() => setActiveTab('inventory')}
@@ -587,22 +596,22 @@ export default function StaffMealPanel({ from, to }: { from: string; to: string 
           )}
         </div>
         <div>
-          {activeTab === 'logs' && isAdminOrManager && (
+          {activeTab === 'logs' && canAddMeal && (
             <button className="btn btn-gold btn-sm" onClick={openAddMeal}>
-              <Plus size={14} /> Add Meal
+              <Plus size={14} /> Log Meal
             </button>
           )}
-          {activeTab === 'roster' && (
+          {activeTab === 'roster' && canAccessRoster && (
             <button className="btn btn-gold btn-sm" onClick={openAddStaff}>
               <UserPlus size={14} /> Add Staff
             </button>
           )}
-          {activeTab === 'menu' && (
+          {activeTab === 'menu' && canAccessFoodMenu && (
             <button className="btn btn-gold btn-sm" onClick={openAddMenu}>
               <Plus size={14} /> Add Menu Item
             </button>
           )}
-          {activeTab === 'inventory' && isAdminOrManager && (
+          {activeTab === 'inventory' && canAccessInventory && (
             <button className="btn btn-gold btn-sm" onClick={openAddIngredient}>
               <Plus size={14} /> Add Ingredient
             </button>
@@ -814,7 +823,7 @@ export default function StaffMealPanel({ from, to }: { from: string; to: string 
         )}
 
         {/* Tab 4: INVENTORY (admin + manager) */}
-        {activeTab === 'inventory' && isAdminOrManager && (
+        {activeTab === 'inventory' && canAccessInventory && (
           <div>
             {loadingInventory ? (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '60px', color: 'var(--text-muted)', gap: '10px' }}>

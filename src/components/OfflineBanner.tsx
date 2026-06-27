@@ -151,7 +151,11 @@ export default function OfflineBanner() {
            url.includes('/api/cancellations') ||
            url.includes('/api/tables') ||
            url.includes('/api/menu-items') ||
-           url.includes('/api/categories'))
+           url.includes('/api/categories') ||
+           url.includes('/api/ingredients') ||
+           url.includes('/api/inventory') ||
+           // All staff control writes: meals, members, menu items, ingredients, recipes
+           url.includes('/api/staff'))
         ) {
           window.dispatchEvent(new CustomEvent('db-write-success'))
         }

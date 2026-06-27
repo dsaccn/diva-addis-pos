@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { backgroundSync } from '@/lib/sync-engine'
 
 export async function GET() {
   const tables = await prisma.table.findMany()
@@ -35,6 +36,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   const { number } = await req.json()
-  const table = await prisma.table.create({ data: { number } })
+  const table = await prisma.table.create({ data: { number, pendingSync: true } })
+  backgroundSync()
   return NextResponse.json(table)
 }

@@ -21,7 +21,7 @@ import { Pool as PgPool } from 'pg'
 
 export interface SyncResult {
   success: boolean
-  synced: { orders: number; orderItems: number; payments: number; cancellations: number; inventoryLogs: number; staffMembers?: number; staffMenuItems?: number; staffIngredients?: number; staffRecipes?: number; staffMeals?: number; staffMealItems?: number }
+  synced: { orders: number; orderItems: number; payments: number; cancellations: number; inventoryLogs: number; tables?: number; staffMembers?: number; staffMenuItems?: number; staffIngredients?: number; staffRecipes?: number; staffMeals?: number; staffMealItems?: number }
   pulled: { orders: number; orderItems: number }
   errors: string[]
   lastSyncedAt: Date | null
@@ -72,12 +72,13 @@ let isSyncing = false
  * Fast — only touches local SQLite, no network call.
  */
 export async function getPendingSyncCount(): Promise<number> {
-  const [orders, orderItems, payments, cancellations, inventoryLogs, staffMembers, staffMenuItems, staffIngredients, staffRecipes, staffMeals, staffMealItems] = await Promise.all([
+  const [orders, orderItems, payments, cancellations, inventoryLogs, tables, staffMembers, staffMenuItems, staffIngredients, staffRecipes, staffMeals, staffMealItems] = await Promise.all([
     prisma.order.count({ where: { pendingSync: true } }),
     prisma.orderItem.count({ where: { pendingSync: true } }),
     prisma.payment.count({ where: { pendingSync: true } }),
     prisma.cancellation.count({ where: { pendingSync: true } }),
     prisma.inventoryLog.count({ where: { pendingSync: true } }),
+    prisma.table.count({ where: { pendingSync: true } }),
     prisma.staffMember.count({ where: { pendingSync: true } }),
     prisma.staffMenuItem.count({ where: { pendingSync: true } }),
     prisma.staffIngredient.count({ where: { pendingSync: true } }),
@@ -85,7 +86,7 @@ export async function getPendingSyncCount(): Promise<number> {
     prisma.staffMeal.count({ where: { pendingSync: true } }),
     prisma.staffMealItem.count({ where: { pendingSync: true } }),
   ])
-  return orders + orderItems + payments + cancellations + inventoryLogs + staffMembers + staffMenuItems + staffIngredients + staffRecipes + staffMeals + staffMealItems
+  return orders + orderItems + payments + cancellations + inventoryLogs + tables + staffMembers + staffMenuItems + staffIngredients + staffRecipes + staffMeals + staffMealItems
 }
 
 /**
@@ -314,13 +315,15 @@ export async function pullFromCloud(): Promise<{ pulled: { orders: number; order
 
       try {
         await prisma.table.deleteMany({
-          where: { id: { notIn: tableIds } }
+          where: { id: { notIn: tableIds }, pendingSync: false }
         })
       } catch (e) {
         console.warn('[Pull static] Table delete warning:', String(e))
       }
 
       for (const t of cloudTables) {
+        const localT = await prisma.table.findUnique({ where: { id: t.id } })
+        if (localT?.pendingSync) continue // local edit not yet pushed — don't overwrite
         await prisma.table.upsert({
           where: { id: t.id },
           update: {
@@ -328,6 +331,7 @@ export async function pullFromCloud(): Promise<{ pulled: { orders: number; order
             status: t.status,
             mergedWithId: t.mergedWithId,
             createdAt: new Date(t.createdAt),
+            pendingSync: false,
           },
           create: {
             id: t.id,
@@ -335,9 +339,11 @@ export async function pullFromCloud(): Promise<{ pulled: { orders: number; order
             status: t.status,
             mergedWithId: t.mergedWithId,
             createdAt: new Date(t.createdAt),
+            pendingSync: false,
           },
         })
       }
+
       
       // 6. StaffMembers
       const { rows: cloudStaffMembers } = await pg.query(
@@ -491,6 +497,78 @@ export async function pullFromCloud(): Promise<{ pulled: { orders: number; order
             staffMenuItemId: sr.staffMenuItemId,
             staffIngredientId: sr.staffIngredientId,
             quantity: Number(sr.quantity),
+            pendingSync: false,
+          },
+        })
+      }
+
+      // 10. StaffMeals
+      const { rows: cloudStaffMeals } = await pg.query(
+        `SELECT id, "staffMemberId", "mealType", "servedAt", "createdAt" FROM "StaffMeal"`
+      )
+      const staffMealIds = cloudStaffMeals.map(sm => sm.id)
+
+      try {
+        await prisma.staffMeal.deleteMany({
+          where: { id: { notIn: staffMealIds }, pendingSync: false }
+        })
+      } catch (e) {
+        console.warn('[Pull static] StaffMeal delete warning:', String(e))
+      }
+
+      for (const sm of cloudStaffMeals) {
+        const localSm = await prisma.staffMeal.findUnique({ where: { id: sm.id } })
+        if (localSm?.pendingSync) continue
+        await prisma.staffMeal.upsert({
+          where: { id: sm.id },
+          update: {
+            staffMemberId: sm.staffMemberId,
+            mealType: sm.mealType,
+            servedAt: new Date(sm.servedAt),
+            createdAt: new Date(sm.createdAt),
+            pendingSync: false,
+          },
+          create: {
+            id: sm.id,
+            staffMemberId: sm.staffMemberId,
+            mealType: sm.mealType,
+            servedAt: new Date(sm.servedAt),
+            createdAt: new Date(sm.createdAt),
+            pendingSync: false,
+          },
+        })
+      }
+
+      // 11. StaffMealItems
+      const { rows: cloudStaffMealItems } = await pg.query(
+        `SELECT id, "staffMealId", "staffMenuItemId", quantity FROM "StaffMealItem"`
+      )
+      const staffMealItemIds = cloudStaffMealItems.map(smi => smi.id)
+
+      try {
+        await prisma.staffMealItem.deleteMany({
+          where: { id: { notIn: staffMealItemIds }, pendingSync: false }
+        })
+      } catch (e) {
+        console.warn('[Pull static] StaffMealItem delete warning:', String(e))
+      }
+
+      for (const smi of cloudStaffMealItems) {
+        const localSmi = await prisma.staffMealItem.findUnique({ where: { id: smi.id } })
+        if (localSmi?.pendingSync) continue
+        await prisma.staffMealItem.upsert({
+          where: { id: smi.id },
+          update: {
+            staffMealId: smi.staffMealId,
+            staffMenuItemId: smi.staffMenuItemId,
+            quantity: Number(smi.quantity),
+            pendingSync: false,
+          },
+          create: {
+            id: smi.id,
+            staffMealId: smi.staffMealId,
+            staffMenuItemId: smi.staffMenuItemId,
+            quantity: Number(smi.quantity),
             pendingSync: false,
           },
         })
@@ -753,7 +831,7 @@ export async function syncToCloud(): Promise<SyncResult> {
   if (process.env.VERCEL) {
     return {
       success: true,
-      synced: { orders: 0, orderItems: 0, payments: 0, cancellations: 0, inventoryLogs: 0, staffMembers: 0, staffMenuItems: 0, staffIngredients: 0, staffRecipes: 0, staffMeals: 0, staffMealItems: 0 },
+      synced: { orders: 0, orderItems: 0, payments: 0, cancellations: 0, inventoryLogs: 0, tables: 0, staffMembers: 0, staffMenuItems: 0, staffIngredients: 0, staffRecipes: 0, staffMeals: 0, staffMealItems: 0 },
       pulled: { orders: 0, orderItems: 0 },
       errors: [],
       lastSyncedAt: new Date(),
@@ -763,7 +841,7 @@ export async function syncToCloud(): Promise<SyncResult> {
   if (isSyncing) {
     return {
       success: false,
-      synced: { orders: 0, orderItems: 0, payments: 0, cancellations: 0, inventoryLogs: 0, staffMembers: 0, staffMenuItems: 0, staffIngredients: 0, staffRecipes: 0, staffMeals: 0, staffMealItems: 0 },
+      synced: { orders: 0, orderItems: 0, payments: 0, cancellations: 0, inventoryLogs: 0, tables: 0, staffMembers: 0, staffMenuItems: 0, staffIngredients: 0, staffRecipes: 0, staffMeals: 0, staffMealItems: 0 },
       pulled: { orders: 0, orderItems: 0 },
       errors: ['Sync already in progress'],
       lastSyncedAt: null,
@@ -772,7 +850,7 @@ export async function syncToCloud(): Promise<SyncResult> {
 
   isSyncing = true
   const errors: string[] = []
-  const synced = { orders: 0, orderItems: 0, payments: 0, cancellations: 0, inventoryLogs: 0, staffMembers: 0, staffMenuItems: 0, staffIngredients: 0, staffRecipes: 0, staffMeals: 0, staffMealItems: 0 }
+  const synced = { orders: 0, orderItems: 0, payments: 0, cancellations: 0, inventoryLogs: 0, tables: 0, staffMembers: 0, staffMenuItems: 0, staffIngredients: 0, staffRecipes: 0, staffMeals: 0, staffMealItems: 0 }
 
   try {
     const pg = getPool()
@@ -902,6 +980,29 @@ export async function syncToCloud(): Promise<SyncResult> {
         synced.inventoryLogs++
       } catch (e) {
         errors.push(`InventoryLog ${log.id}: ${String(e)}`)
+      }
+    }
+
+    // ── Tables ────────────────────────────────────────────────────────────────
+    // Push new/renamed tables so they appear on every terminal.
+    const pendingTables = await prisma.table.findMany({ where: { pendingSync: true } })
+    for (const t of pendingTables) {
+      try {
+        await pg.query(
+          `INSERT INTO "Table" (id, number, status, "mergedWithId", "createdAt")
+           VALUES ($1, $2, $3, $4, $5)
+           ON CONFLICT (id) DO UPDATE SET
+             number           = EXCLUDED.number,
+             "mergedWithId"   = EXCLUDED."mergedWithId"`,
+          [t.id, t.number, t.status, t.mergedWithId, t.createdAt]
+        )
+        await prisma.table.update({
+          where: { id: t.id },
+          data: { pendingSync: false },
+        })
+        synced.tables = (synced.tables ?? 0) + 1
+      } catch (e) {
+        errors.push(`Table ${t.id}: ${String(e)}`)
       }
     }
 

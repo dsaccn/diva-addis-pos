@@ -61,6 +61,7 @@ model Table {
   status       String   @default("FREE") // FREE, OCCUPIED, WAITING_PAYMENT
   mergedWithId String?
   createdAt    DateTime @default(now())
+  pendingSync  Boolean  @default(true)
 
   orders Order[]
 }
