@@ -37,10 +37,18 @@ export async function middleware(request: NextRequest) {
     const { payload } = await jwtVerify(token, SECRET)
     const role = payload.role as string
 
+    // Find the most specific (longest) matching route prefix
+    let matchedRoute = ''
+    let matchedRoles: string[] = []
     for (const [route, allowedRoles] of Object.entries(roleRoutes)) {
-      if (pathname.startsWith(route) && !allowedRoles.includes(role)) {
-        return NextResponse.redirect(new URL('/dashboard', request.url))
+      if (pathname.startsWith(route) && route.length > matchedRoute.length) {
+        matchedRoute = route
+        matchedRoles = allowedRoles
       }
+    }
+
+    if (matchedRoute && !matchedRoles.includes(role)) {
+      return NextResponse.redirect(new URL('/dashboard', request.url))
     }
 
     return NextResponse.next()
